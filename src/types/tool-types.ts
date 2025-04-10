@@ -89,3 +89,14 @@ export interface GetLogsStatsArgs {
 }
 
 // Add types for new migration tools later
+
+
+// Cron API types
+export interface ListCronJobsArgs {
+  fields?: string;
+}
+
+export interface RunCronJobArgs {
+  jobId: string;
+}
+

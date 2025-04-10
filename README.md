@@ -346,6 +346,41 @@ The server provides the following tools, organized by category:
         }
         ```
 
+### Cron Job Management
+
+> **Note:** The Cron Jobs API requires admin authentication and may not be available in all PocketBase instances or configurations. These tools interact with the PocketBase Cron Jobs API.
+
+-   **list_cron_jobs**: Returns list with all registered app level cron jobs.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "string",
+              "description": "Comma separated string of the fields to return in the JSON response (by default returns all fields). Ex.:?fields=*,expand.relField.name"
+            }
+          }
+        }
+        ```
+
+-   **run_cron_job**: Triggers a single cron job by its id.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "jobId": {
+              "type": "string",
+              "description": "The identifier of the cron job to run."
+            }
+          },
+          "required": [
+            "jobId"
+          ]
+        }
+        ```
+
 ### Migration Management
 
 -   **set_migrations_directory**: Set the directory where migration files will be created and read from.
@@ -604,7 +639,9 @@ To use this server with Cline, you need to add it to your MCP settings file (`cl
             "get_collection_schema",
             "list_logs",
             "get_log",
-            "get_logs_stats"
+            "get_logs_stats",
+            "list_cron_jobs",
+            "run_cron_job"
           ] // Suggested auto-approve settings
         }
 

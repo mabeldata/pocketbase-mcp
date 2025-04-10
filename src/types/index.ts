@@ -13,7 +13,10 @@ export type {
   // Log API types
   ListLogsArgs,
   GetLogArgs,
-  GetLogsStatsArgs
+  GetLogsStatsArgs,
+  // Cron API types
+  ListCronJobsArgs,
+  RunCronJobArgs
 } from './tool-types.js';
 export * from './pocketbase-types.js'; // Keep wildcard export for potentially generated types
 export * from './migration-types.js'; // Keep wildcard export for now
