@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase';
 import {
     ToolResult, ToolInfo,
-    FetchRecordArgs, ListRecordsArgs, CreateRecordArgs, UpdateRecordArgs
+    FetchRecordArgs, ListRecordsArgs, CreateRecordArgs, UpdateRecordArgs, DeleteRecordArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
 
@@ -60,7 +60,18 @@ const recordToolInfo: ToolInfo[] = [
             required: ['collection', 'id', 'data'],
         },
     },
-    // Add delete_record later if needed
+    {
+        name: 'delete_record',
+        description: 'Delete a record from a PocketBase collection by ID.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
+                id: { type: 'string', description: 'The ID of the record to delete.' },
+            },
+            required: ['collection', 'id'],
+        },
+    },
 ];
 
 export function listRecordTools(): ToolInfo[] {
@@ -78,6 +89,8 @@ export async function handleRecordToolCall(name: string, args: any, pb: PocketBa
             return createRecord(args as CreateRecordArgs, pb);
         case 'update_record':
             return updateRecord(args as UpdateRecordArgs, pb);
+        case 'delete_record':
+            return deleteRecord(args as DeleteRecordArgs, pb);
         default:
             // This case should ideally not be reached due to routing in index.ts
             throw new Error(`Unknown record tool: ${name}`);
@@ -128,5 +141,15 @@ async function updateRecord(args: UpdateRecordArgs, pb: PocketBase): Promise<Too
     const record = await pb.collection(args.collection).update(args.id, args.data);
     return {
         content: [{ type: 'text', text: JSON.stringify(record, null, 2) }],
+    };
+}
+
+async function deleteRecord(args: DeleteRecordArgs, pb: PocketBase): Promise<ToolResult> {
+    if (!args.collection || !args.id) {
+        throw invalidParamsError("Missing required arguments: collection, id");
+    }
+    await pb.collection(args.collection).delete(args.id);
+    return {
+        content: [{ type: 'text', text: `Record ${args.id} deleted successfully from collection ${args.collection}.` }],
     };
 }

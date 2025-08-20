@@ -42,7 +42,7 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
     // Ensure args is treated as 'any' or validated properly before passing
     const toolArgs = args as any;
 
-    if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record') {
+    if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record' || name === 'delete_record') {
         return handleRecordToolCall(name, toolArgs, pb);
     } else if (name === 'get_collection_schema' || name === 'list_collections') {
         return handleCollectionToolCall(name, toolArgs, pb);
