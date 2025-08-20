@@ -51,6 +51,11 @@ export interface UpdateRecordArgs {
   data: any;
 }
 
+export interface DeleteRecordArgs {
+  collection: string;
+  id: string;
+}
+
 export interface GetCollectionSchemaArgs {
   collection: string;
 }
