@@ -4,6 +4,8 @@ import {
     UploadFileArgs, DownloadFileArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
+import { z } from 'zod'; // For input validation
+
 // Node.js built-in modules for potential future use (like saving downloaded files server-side if needed)
 // import fs from 'fs/promises';
 // import path from 'path';
@@ -13,31 +15,22 @@ const fileToolInfo: ToolInfo[] = [
     {
         name: 'upload_file',
         description: 'Upload a file (provided as content string) to a PocketBase collection record field.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the collection.' },
-                recordId: { type: 'string', description: 'The ID of the record to attach the file to.' },
-                fileField: { type: 'string', description: 'The name of the file field in the collection schema.' },
-                fileContent: { type: 'string', description: 'The raw content of the file as a string.' },
-                fileName: { type: 'string', description: 'The desired name for the uploaded file (e.g., "report.txt").' }
-            },
-            required: ['collection', 'recordId', 'fileField', 'fileContent', 'fileName']
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the collection.'),
+            recordId: z.string().describe('The ID of the record to attach the file to.'),
+            fileField: z.string().describe('The name of the file field in the collection schema.'),
+            fileContent: z.string().describe('The raw content of the file as a string.'),
+            fileName: z.string().describe('The desired name for the uploaded file (e.g., "report.txt").')
+        }),
     },
     {
         name: 'download_file',
         description: 'Get the URL to download a file from a PocketBase collection record field.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the collection.' },
-                recordId: { type: 'string', description: 'The ID of the record containing the file.' },
-                fileField: { type: 'string', description: 'The name of the file field.' },
-                // downloadPath is removed - server cannot directly save files for the client
-            },
-            required: ['collection', 'recordId', 'fileField']
-        }
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the collection.'),
+            recordId: z.string().describe('The ID of the record containing the file.'),
+            fileField: z.string().describe('The name of the file field.')
+        })
     }
 ];
 

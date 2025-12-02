@@ -4,44 +4,33 @@ import {
     ListLogsArgs, GetLogArgs, GetLogsStatsArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
+import { z } from 'zod';
 
 // Define tool information for registration
 const logToolInfo: ToolInfo[] = [
     {
         name: 'list_logs',
         description: 'List API request logs from PocketBase with filtering, sorting, and pagination.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                page: { type: 'number', description: 'Page number (defaults to 1).', minimum: 1 },
-                perPage: { type: 'number', description: 'Items per page (defaults to 30, max 500).', minimum: 1, maximum: 500 },
-                filter: { type: 'string', description: 'PocketBase filter string (e.g., "method=\'GET\'").' },
-                sort: { type: 'string', description: 'PocketBase sort string (e.g., "-created,url").' }
-            },
-            required: [],
-        },
+        inputSchema: z.object({
+            page: z.number().int().min(1).optional().describe('Page number (defaults to 1).'),
+            perPage: z.number().int().min(1).max(500).optional().describe('Items per page (defaults to 30, max 500).'),
+            filter: z.string().optional().describe('PocketBase filter string (e.g., "method=\'GET\'").'),
+            sort: z.string().optional().describe('PocketBase sort string (e.g., "-created,url").'),
+        }),
     },
     {
         name: 'get_log',
         description: 'Get a single API request log by ID.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                id: { type: 'string', description: 'The ID of the log to fetch.' },
-            },
-            required: ['id'],
-        },
+        inputSchema: z.object({
+            id: z.string().describe('The ID of the log to fetch.'),
+        }),
     },
     {
         name: 'get_logs_stats',
         description: 'Get API request logs statistics with optional filtering.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                filter: { type: 'string', description: 'PocketBase filter string (e.g., "method=\'GET\'").' },
-            },
-            required: [],
-        },
+        inputSchema: z.object({
+            filter: z.string().optional().describe('PocketBase filter string (e.g., "method=\'GET\'").'),
+        }),
     },
 ];
 

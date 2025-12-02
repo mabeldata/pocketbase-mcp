@@ -12,11 +12,16 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.22.0",
     "@types/node": "^22.13.10",
     "axios": "^1.8.3",
+    "express": "^5.1.0",
     "pocketbase": "^0.25.2",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5"
   }
 }

@@ -12,6 +12,7 @@ import {
     applyAllMigrations,
     revertToMigration
 } from '../migrations/index.js';
+import { z } from 'zod'; // For input validation
 
 // Define argument types for migration tools
 interface CreateMigrationArgs {
@@ -57,125 +58,75 @@ const migrationToolInfo: ToolInfo[] = [
     {
         name: 'set_migrations_directory',
         description: 'Set the directory where migration files will be created and read from.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                customPath: { type: 'string', description: 'Custom path for migrations. If not provided, defaults to "pb_migrations" in the current working directory.' },
-            },
-        },
+        inputSchema: z.object({
+            customPath: z.string().optional().describe('Custom path for migrations. If not provided, defaults to "pb_migrations" in the current working directory.'),
+        }),
     },
     {
         name: 'create_migration',
         description: 'Create a new, empty PocketBase migration file with a timestamped name.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                description: { type: 'string', description: 'A brief description for the migration filename (e.g., "add_user_email_index").' },
-            },
-            required: ['description'],
-        },
+        inputSchema: z.object({
+            description: z.string().describe('A brief description for the migration filename (e.g., "add_user_email_index").'),
+        }),
     },
     {
         name: 'create_collection_migration',
         description: 'Create a migration file specifically for creating a new PocketBase collection.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                description: { type: 'string', description: 'Optional description override for the filename.' },
-                collectionDefinition: {
-                    type: 'object',
-                    description: 'The full schema definition for the new collection (including name, id, fields, rules, etc.).',
-                    additionalProperties: true, // Allow any properties for the schema
-                     required: ['name', 'id'] // Enforce required schema properties
-                },
-            },
-            required: ['collectionDefinition'],
-        },
+        inputSchema: z.object({
+            description: z.string().optional().describe('Optional description override for the filename.'),
+            collectionDefinition: z.object({
+                name: z.string(),
+                id: z.string(),
+            }).catchall(z.any()).describe('The full schema definition for the new collection (including name, id, fields, rules, etc.).'),
+        }),
     },
     {
         name: 'add_field_migration',
         description: 'Create a migration file for adding a field to an existing collection.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collectionNameOrId: { type: 'string', description: 'The name or ID of the collection to update.' },
-                fieldDefinition: {
-                    type: 'object',
-                    description: 'The schema definition for the new field.',
-                    additionalProperties: true,
-                    required: ['name', 'type']
-                },
-                description: { type: 'string', description: 'Optional description override for the filename.' },
-            },
-            required: ['collectionNameOrId', 'fieldDefinition'],
-        },
+        inputSchema: z.object({
+            collectionNameOrId: z.string().describe('The name or ID of the collection to update.'),
+            fieldDefinition: z.object({
+                name: z.string(),
+                type: z.string(),
+            }).catchall(z.any()).describe('The schema definition for the new field.'),
+            description: z.string().optional().describe('Optional description override for the filename.'),
+        }),
     },
     {
         name: 'list_migrations',
         description: 'List all migration files found in the PocketBase migrations directory.',
-        inputSchema: {
-            type: 'object',
-            properties: {},
-            additionalProperties: false,
-        },
+        inputSchema: z.object({}),
     },
     {
         name: 'apply_migration',
         description: 'Apply a specific migration file.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                migrationFile: { type: 'string', description: 'Name of the migration file to apply.' },
-            },
-            required: ['migrationFile'],
-        },
+        inputSchema: z.object({
+            migrationFile: z.string().describe('Name of the migration file to apply.'),
+        }),
     },
     {
         name: 'revert_migration',
         description: 'Revert a specific migration file.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                migrationFile: { type: 'string', description: 'Name of the migration file to revert.' },
-            },
-            required: ['migrationFile'],
-        },
+        inputSchema: z.object({
+            migrationFile: z.string().describe('Name of the migration file to revert.'),
+        }),
     },
     {
         name: 'apply_all_migrations',
         description: 'Apply all pending migrations.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                appliedMigrations: { 
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: 'Array of already applied migration filenames.' 
-                },
-            },
-        },
+        inputSchema: z.object({
+            appliedMigrations: z.array(z.string()).optional().describe('Array of already applied migration filenames.'),
+        }),
     },
     {
         name: 'revert_to_migration',
         description: 'Revert migrations up to a specific target.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                targetMigration: { 
-                    type: 'string', 
-                    description: 'Name of the migration to revert to (exclusive). Use empty string to revert all.' 
-                },
-                appliedMigrations: { 
-                    type: 'array', 
-                    items: { type: 'string' },
-                    description: 'Array of already applied migration filenames.' 
-                },
-            },
-            required: ['targetMigration'],
-        },
+        inputSchema: z.object({
+            targetMigration: z.string().describe('Name of the migration to revert to (exclusive). Use empty string to revert all.'),
+            appliedMigrations: z.array(z.string()).optional().describe('Array of already applied migration filenames.'),
+        }),
     },
 ];
-
 export function listMigrationTools(): ToolInfo[] {
     return migrationToolInfo;
 }

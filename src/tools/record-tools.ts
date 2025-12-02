@@ -4,61 +4,46 @@ import {
     FetchRecordArgs, ListRecordsArgs, CreateRecordArgs, UpdateRecordArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
+import { z } from 'zod';
 
 // Define tool information for registration
 const recordToolInfo: ToolInfo[] = [
     {
         name: 'fetch_record',
         description: 'Fetch a single record from a PocketBase collection by ID.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
-                id: { type: 'string', description: 'The ID of the record to fetch.' },
-            },
-            required: ['collection', 'id'],
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the PocketBase collection.'),
+            id: z.string().describe('The ID of the record to fetch.'),
+        }),
     },
     {
         name: 'list_records',
         description: 'List records from a PocketBase collection. Supports filtering, sorting, pagination, and expansion.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
-                page: { type: 'number', description: 'Page number (defaults to 1).', minimum: 1 },
-                perPage: { type: 'number', description: 'Items per page (defaults to 30, max 500).', minimum: 1, maximum: 500 },
-                filter: { type: 'string', description: 'PocketBase filter string (e.g., "status=\'active\'").' },
-                sort: { type: 'string', description: 'PocketBase sort string (e.g., "-created,name").' },
-                expand: { type: 'string', description: 'PocketBase expand string (e.g., "user,tags.name").' }
-            },
-            required: ['collection'],
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the PocketBase collection.'),
+            page: z.number().int().min(1).optional().describe('Page number (defaults to 1).'),
+            perPage: z.number().int().min(1).max(500).optional().describe('Items per page (defaults to 30, max 500).'),
+            filter: z.string().optional().describe('PocketBase filter string (e.g., "status=\'active\'").'),
+            sort: z.string().optional().describe('PocketBase sort string (e.g., "-created,name").'),
+            expand: z.string().optional().describe('PocketBase expand string (e.g., "user,tags.name").'),
+        }),
     },
     {
         name: 'create_record',
         description: 'Create a new record in a PocketBase collection.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
-                data: { type: 'object', description: 'The data for the new record (key-value pairs).', additionalProperties: true },
-            },
-            required: ['collection', 'data'],
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the PocketBase collection.'),
+            data: z.record(z.any()).describe('The data for the new record (key-value pairs).'),
+        }),
     },
     {
         name: 'update_record',
         description: 'Update an existing record in a PocketBase collection by ID.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
-                id: { type: 'string', description: 'The ID of the record to update.' },
-                data: { type: 'object', description: 'The data fields to update (key-value pairs).', additionalProperties: true },
-            },
-            required: ['collection', 'id', 'data'],
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the PocketBase collection.'),
+            id: z.string().describe('The ID of the record to update.'),
+            data: z.record(z.any()).describe('The data fields to update (key-value pairs).'),
+        }),
     },
     // Add delete_record later if needed
 ];

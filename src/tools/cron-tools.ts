@@ -5,6 +5,7 @@ import {
     ListCronJobsArgs, RunCronJobArgs
 } from '../types/index.js'
 import { invalidParamsError } from '../server/error-handler.js';
+import { z } from 'zod'; // For input validation
 
 
 //Define tool information for registration
@@ -12,23 +13,16 @@ const cronToolInfo: ToolInfo[] = [
     {
         name: 'list_cron_jobs',
         description: 'Returns list with all registered app level cron jobs.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                fields: { type: 'string', description: 'Comma separated string of the fields to return in the JSON response (by default returns all fields). Ex.:?fields=*,expand.relField.name' }
-            }
-        }
+        inputSchema: z.object({
+            fields: z.string().optional().describe('Comma separated string of the fields to return in the JSON response (by default returns all fields). Ex.:?fields=*,expand.relField.name')
+        })
     },
     {
         name: 'run_cron_job',
         description: 'Triggers a single cron job by its id.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                jobId: { type: 'string', description: 'The identifier of the cron job to run.' }
-            },
-            required: ['jobId']
-        }
+        inputSchema: z.object({
+            jobId: z.string().describe('The identifier of the cron job to run.')
+        }).required()
     }
 ];
 
@@ -80,10 +74,10 @@ async function runCronJob(args: RunCronJobArgs, pb: PocketBase): Promise<ToolRes
     if (!args.jobId) {
         throw invalidParamsError("Missing required argument: jobId");
     }
-    
+
     // Make the API request to get a single log
     const result = await pb.crons.run(args.jobId)
-    
+
     return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };

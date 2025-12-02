@@ -4,28 +4,21 @@ import {
     GetCollectionSchemaArgs, ListCollectionsArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
+import { z } from 'zod';
 
 // Define tool information
 const collectionToolInfo: ToolInfo[] = [
     {
         name: 'get_collection_schema',
         description: 'Get the schema (fields, rules, etc.) of a PocketBase collection.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                collection: { type: 'string', description: 'The name or ID of the PocketBase collection.' },
-            },
-            required: ['collection'],
-        },
+        inputSchema: z.object({
+            collection: z.string().describe('The name or ID of the PocketBase collection.'),
+        }),
     },
     {
         name: 'list_collections',
         description: 'List all collections in the PocketBase instance.',
-        inputSchema: {
-            type: 'object',
-            properties: {}, // No arguments needed
-            additionalProperties: false,
-        },
+        inputSchema: z.object({}).describe('No arguments needed'),
     },
 ];
 
