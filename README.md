@@ -67,7 +67,7 @@ The server provides the following tools, organized by category:
         }
         ```
 
--   **list_records**: List records from a PocketBase collection. Supports pagination, filtering, sorting, and expanding relations.
+-   **list_records**: List records from a PocketBase collection. Supports pagination, filtering, sorting, expansion, and aggregation.
     -   *Input Schema*:
         ```json
         {
@@ -99,6 +99,10 @@ The server provides the following tools, organized by category:
             "expand": {
               "type": "string",
               "description": "Expand string for the PocketBase query (e.g., \\"relation1,relation2.subRelation\\")."
+            },
+            "aggregate": {
+              "type": "string",
+              "description": "Aggregation query (e.g., 'count', 'sum(field)', 'avg(field)')."
             }
           },
           "required": [
@@ -155,6 +159,54 @@ The server provides the following tools, organized by category:
             "id",
             "data"
           ]
+        }
+        ```
+
+-   **delete_record**: Delete a record from a PocketBase collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "id": { "type": "string" }
+          },
+          "required": ["collection", "id"]
+        }
+        ```
+
+-   **batch_import_records**: Import multiple records into a collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "records": {
+              "type": "array",
+              "items": { "type": "object", "additionalProperties": true }
+            },
+            "skipDuplicates": { "type": "boolean" }
+          },
+          "required": ["collection", "records"]
+        }
+        ```
+
+-   **batch_export_records**: Export records from a collection in JSON or CSV format.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "filter": { "type": "string" },
+            "format": { "type": "string", "enum": ["json", "csv"] },
+            "fields": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["collection"]
         }
         ```
 
@@ -281,6 +333,289 @@ The server provides the following tools, organized by category:
           "required": [
             "collection"
           ]
+        }
+        ```
+
+-   **create_collection**: Create a new collection with a custom schema.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique collection name (used as table name)."
+            },
+            "type": {
+              "type": "string",
+              "enum": ["base", "auth", "view"],
+              "description": "Collection type (default: 'base')."
+            },
+            "fields": {
+              "type": "array",
+              "description": "Array of field definitions."
+            },
+            "indexes": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Array of SQL index definitions."
+            }
+          },
+          "required": ["name"]
+        }
+        ```
+
+-   **update_collection**: Update an existing collection schema.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": {
+              "type": "string",
+              "description": "The name or ID of the collection to update."
+            },
+            "name": { "type": "string" },
+            "fields": { "type": "array" },
+            "indexes": { "type": "array", "items": { "type": "string" } }
+          },
+          "required": ["collection"]
+        }
+        ```
+
+-   **migrate_collection_schema**: Migrate a collection schema while preserving data.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "newSchema": { "type": "object" },
+            "migrationStrategy": {
+              "type": "string",
+              "enum": ["preserve", "replace"]
+            }
+          },
+          "required": ["collection", "newSchema"]
+        }
+        ```
+
+-   **create_index**: Create an index on a collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "fields": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "unique": { "type": "boolean" }
+          },
+          "required": ["collection", "fields"]
+        }
+        ```
+
+-   **delete_index**: Delete an index from a collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "indexName": { "type": "string" }
+          },
+          "required": ["collection", "indexName"]
+        }
+        ```
+
+-   **list_indexes**: List all indexes for a collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" }
+          },
+          "required": ["collection"]
+        }
+        ```
+
+### User Management
+
+-   **create_user**: Create a new user account in PocketBase.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "email": { "type": "string" },
+            "password": { "type": "string" },
+            "passwordConfirm": { "type": "string" },
+            "data": { "type": "object", "additionalProperties": true }
+          },
+          "required": ["email", "password", "passwordConfirm"]
+        }
+        ```
+
+-   **update_user**: Update an existing user account.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "userId": { "type": "string" },
+            "data": { "type": "object", "additionalProperties": true }
+          },
+          "required": ["userId", "data"]
+        }
+        ```
+
+-   **delete_user**: Delete a user account.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "userId": { "type": "string" }
+          },
+          "required": ["userId"]
+        }
+        ```
+
+-   **list_users**: List users with filtering, sorting, and pagination.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "page": { "type": "number", "minimum": 1 },
+            "perPage": { "type": "number", "minimum": 1, "maximum": 500 },
+            "filter": { "type": "string" },
+            "sort": { "type": "string" }
+          }
+        }
+        ```
+
+-   **update_user_password**: Update a user password.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "userId": { "type": "string" },
+            "newPassword": { "type": "string" },
+            "oldPassword": { "type": "string" }
+          },
+          "required": ["userId", "newPassword"]
+        }
+        ```
+
+-   **reset_user_password**: Request a password reset (sends reset email).
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "email": { "type": "string" }
+          },
+          "required": ["email"]
+        }
+        ```
+
+-   **create_user_token**: Create an authentication token for a user.
+-   **verify_user_token**: Verify if a user token is valid.
+
+### Database Operations
+
+-   **backup_database**: Create a backup of the PocketBase database.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "backupPath": { "type": "string" }
+          }
+        }
+        ```
+
+-   **restore_database**: Restore a PocketBase database from a backup.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "backupData": { "type": "object" },
+            "backupPath": { "type": "string" }
+          }
+        }
+        ```
+
+-   **export_database_json**: Export the entire database to JSON format.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "outputPath": { "type": "string" },
+            "collections": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+        ```
+
+-   **export_database_csv**: Export the database to CSV format.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "outputPath": { "type": "string" },
+            "collections": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+        ```
+
+-   **optimize_indexes**: Get index optimization information for collections.
+
+### Realtime Subscriptions
+
+-   **subscribe_collection**: Subscribe to realtime events for a collection.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": { "type": "string" },
+            "eventTypes": {
+              "type": "array",
+              "items": { "type": "string", "enum": ["create", "update", "delete"] }
+            }
+          },
+          "required": ["collection"]
+        }
+        ```
+    -   *Note:* Realtime subscriptions require WebSocket connections. Use PocketBase SDK directly in your application for realtime functionality.
+
+-   **unsubscribe_collection**: Unsubscribe from realtime events.
+
+### Admin Authentication
+
+-   **admin_auth**: Authenticate as an admin and obtain an admin token.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "email": { "type": "string" },
+            "password": { "type": "string" }
+          }
         }
         ```
 
@@ -608,6 +943,218 @@ await revertToMigration("1743958155_update_transactions_add_relation_to_itself.j
 
 // Revert all migrations
 await revertToMigration("", pocketbaseInstance);
+```
+
+### Record Operations Examples
+
+**Fetch a single record:**
+```json
+{
+  "collection": "posts",
+  "id": "abc123"
+}
+```
+
+**List records with filtering and pagination:**
+```json
+{
+  "collection": "posts",
+  "page": 1,
+  "perPage": 20,
+  "filter": "status='published'",
+  "sort": "-created",
+  "expand": "author,comments"
+}
+```
+
+**List records with aggregation:**
+```json
+{
+  "collection": "orders",
+  "aggregate": "sum(total)",
+  "filter": "status='completed'"
+}
+```
+
+**Create a record:**
+```json
+{
+  "collection": "posts",
+  "data": {
+    "title": "My First Post",
+    "content": "This is the content",
+    "status": "draft"
+  }
+}
+```
+
+**Update a record:**
+```json
+{
+  "collection": "posts",
+  "id": "abc123",
+  "data": {
+    "status": "published"
+  }
+}
+```
+
+**Delete a record:**
+```json
+{
+  "collection": "posts",
+  "id": "abc123"
+}
+```
+
+**Batch import records:**
+```json
+{
+  "collection": "products",
+  "records": [
+    { "name": "Product 1", "price": 10.99 },
+    { "name": "Product 2", "price": 20.99 }
+  ],
+  "skipDuplicates": true
+}
+```
+
+**Batch export records:**
+```json
+{
+  "collection": "orders",
+  "format": "csv",
+  "filter": "created >= '2024-01-01'",
+  "fields": ["id", "total", "status"]
+}
+```
+
+### Collection Management Examples
+
+**Create a collection:**
+```json
+{
+  "name": "products",
+  "type": "base",
+  "fields": [
+    {
+      "name": "name",
+      "type": "text",
+      "required": true
+    },
+    {
+      "name": "price",
+      "type": "number",
+      "required": true
+    }
+  ],
+  "indexes": ["CREATE INDEX idx_name ON products (name)"]
+}
+```
+
+**Update a collection:**
+```json
+{
+  "collection": "products",
+  "fields": [
+    {
+      "name": "description",
+      "type": "text"
+    }
+  ]
+}
+```
+
+**Create an index:**
+```json
+{
+  "collection": "products",
+  "fields": ["name", "category"],
+  "unique": false
+}
+```
+
+### User Management Examples
+
+**Create a user:**
+```json
+{
+  "email": "user@example.com",
+  "password": "securepassword123",
+  "passwordConfirm": "securepassword123",
+  "data": {
+    "name": "John Doe"
+  }
+}
+```
+
+**List users:**
+```json
+{
+  "page": 1,
+  "perPage": 50,
+  "filter": "verified=true",
+  "sort": "-created"
+}
+```
+
+**Update user password:**
+```json
+{
+  "userId": "user123",
+  "newPassword": "newsecurepassword456"
+}
+```
+
+**Reset user password (sends email):**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+### Database Operations Examples
+
+**Backup database:**
+```json
+{}
+```
+
+**Export database to JSON:**
+```json
+{
+  "collections": ["users", "posts"]
+}
+```
+
+**Export database to CSV:**
+```json
+{
+  "collections": ["orders"],
+  "outputPath": "/tmp/backup.csv"
+}
+```
+
+### File Operations Examples
+
+**Upload a file:**
+```json
+{
+  "collection": "users",
+  "recordId": "user123",
+  "fileField": "avatar",
+  "fileContent": "base64encodedcontent...",
+  "fileName": "avatar.jpg"
+}
+```
+
+**Download a file (get URL):**
+```json
+{
+  "collection": "users",
+  "recordId": "user123",
+  "fileField": "avatar"
+}
 ```
 
 ## Cline Installation
