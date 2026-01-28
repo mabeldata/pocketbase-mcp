@@ -1,15 +1,7 @@
-import PocketBase from 'pocketbase';
-import {
-    ToolResult, ToolInfo,
-    GetCollectionSchemaArgs, ListCollectionsArgs,
-    CreateCollectionArgs, UpdateCollectionArgs, MigrateCollectionSchemaArgs,
-    CreateIndexArgs, DeleteIndexArgs, ListIndexesArgs
-} from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
 import { validateRequiredParams, validateCollectionName } from '../server/validation.js';
-
 // Define tool information
-const collectionToolInfo: ToolInfo[] = [
+const collectionToolInfo = [
     {
         name: 'get_collection_schema',
         description: 'Get the schema (fields, rules, etc.) of a PocketBase collection.',
@@ -119,38 +111,34 @@ const collectionToolInfo: ToolInfo[] = [
         },
     },
 ];
-
-export function listCollectionTools(): ToolInfo[] {
+export function listCollectionTools() {
     return collectionToolInfo;
 }
-
 // Handle calls for collection-related tools
-export async function handleCollectionToolCall(name: string, args: any, pb: PocketBase): Promise<ToolResult> {
+export async function handleCollectionToolCall(name, args, pb) {
     switch (name) {
         case 'get_collection_schema':
-            return getCollectionSchema(args as GetCollectionSchemaArgs, pb);
+            return getCollectionSchema(args, pb);
         case 'list_collections':
-            return listCollections(args as ListCollectionsArgs, pb);
+            return listCollections(args, pb);
         case 'create_collection':
-            return createCollection(args as CreateCollectionArgs, pb);
+            return createCollection(args, pb);
         case 'update_collection':
-            return updateCollection(args as UpdateCollectionArgs, pb);
+            return updateCollection(args, pb);
         case 'migrate_collection_schema':
-            return migrateCollectionSchema(args as MigrateCollectionSchemaArgs, pb);
+            return migrateCollectionSchema(args, pb);
         case 'create_index':
-            return createIndex(args as CreateIndexArgs, pb);
+            return createIndex(args, pb);
         case 'delete_index':
-            return deleteIndex(args as DeleteIndexArgs, pb);
+            return deleteIndex(args, pb);
         case 'list_indexes':
-            return listIndexes(args as ListIndexesArgs, pb);
+            return listIndexes(args, pb);
         default:
             throw new Error(`Unknown collection tool: ${name}`);
     }
 }
-
 // --- Individual Tool Implementations ---
-
-async function getCollectionSchema(args: GetCollectionSchemaArgs, pb: PocketBase): Promise<ToolResult> {
+async function getCollectionSchema(args, pb) {
     if (!args.collection) {
         throw invalidParamsError("Missing required argument: collection");
     }
@@ -159,94 +147,106 @@ async function getCollectionSchema(args: GetCollectionSchemaArgs, pb: PocketBase
         content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }],
     };
 }
-
-async function listCollections(args: ListCollectionsArgs, pb: PocketBase): Promise<ToolResult> {
+async function listCollections(args, pb) {
     // Args are ignored for this tool
     const result = await pb.collections.getFullList({ sort: '-created' });
     return {
         content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
     };
 }
-
-async function createCollection(args: CreateCollectionArgs, pb: PocketBase): Promise<ToolResult> {
+async function createCollection(args, pb) {
     validateRequiredParams(args, ['name']);
-    
     // Validate collection name format
     const nameValidation = validateCollectionName(args.name);
     if (!nameValidation.valid) {
         throw invalidParamsError(nameValidation.error || 'Invalid collection name');
     }
-
-    const collectionData: any = {
+    const collectionData = {
         name: args.name,
         type: args.type || 'base',
     };
-
-    if (args.fields) collectionData.fields = args.fields;
-    if (args.indexes) collectionData.indexes = args.indexes;
-    if (args.system !== undefined) collectionData.system = args.system;
-    if (args.listRule !== undefined) collectionData.listRule = args.listRule;
-    if (args.viewRule !== undefined) collectionData.viewRule = args.viewRule;
-    if (args.createRule !== undefined) collectionData.createRule = args.createRule;
-    if (args.updateRule !== undefined) collectionData.updateRule = args.updateRule;
-    if (args.deleteRule !== undefined) collectionData.deleteRule = args.deleteRule;
-    if (args.viewQuery) collectionData.viewQuery = args.viewQuery;
-    if (args.manageRule !== undefined) collectionData.manageRule = args.manageRule;
-    if (args.authRule !== undefined) collectionData.authRule = args.authRule;
-    if (args.passwordAuth) collectionData.passwordAuth = args.passwordAuth;
-
+    if (args.fields)
+        collectionData.fields = args.fields;
+    if (args.indexes)
+        collectionData.indexes = args.indexes;
+    if (args.system !== undefined)
+        collectionData.system = args.system;
+    if (args.listRule !== undefined)
+        collectionData.listRule = args.listRule;
+    if (args.viewRule !== undefined)
+        collectionData.viewRule = args.viewRule;
+    if (args.createRule !== undefined)
+        collectionData.createRule = args.createRule;
+    if (args.updateRule !== undefined)
+        collectionData.updateRule = args.updateRule;
+    if (args.deleteRule !== undefined)
+        collectionData.deleteRule = args.deleteRule;
+    if (args.viewQuery)
+        collectionData.viewQuery = args.viewQuery;
+    if (args.manageRule !== undefined)
+        collectionData.manageRule = args.manageRule;
+    if (args.authRule !== undefined)
+        collectionData.authRule = args.authRule;
+    if (args.passwordAuth)
+        collectionData.passwordAuth = args.passwordAuth;
     const collection = await pb.collections.create(collectionData);
     return {
         content: [{ type: 'text', text: JSON.stringify(collection, null, 2) }],
     };
 }
-
-async function updateCollection(args: UpdateCollectionArgs, pb: PocketBase): Promise<ToolResult> {
+async function updateCollection(args, pb) {
     if (!args.collection) {
         throw invalidParamsError("Missing required argument: collection");
     }
-
-    const updateData: any = {};
-    if (args.name) updateData.name = args.name;
-    if (args.fields) updateData.fields = args.fields;
-    if (args.indexes) updateData.indexes = args.indexes;
-    if (args.system !== undefined) updateData.system = args.system;
-    if (args.listRule !== undefined) updateData.listRule = args.listRule;
-    if (args.viewRule !== undefined) updateData.viewRule = args.viewRule;
-    if (args.createRule !== undefined) updateData.createRule = args.createRule;
-    if (args.updateRule !== undefined) updateData.updateRule = args.updateRule;
-    if (args.deleteRule !== undefined) updateData.deleteRule = args.deleteRule;
-    if (args.viewQuery) updateData.viewQuery = args.viewQuery;
-    if (args.manageRule !== undefined) updateData.manageRule = args.manageRule;
-    if (args.authRule !== undefined) updateData.authRule = args.authRule;
-    if (args.passwordAuth) updateData.passwordAuth = args.passwordAuth;
-
+    const updateData = {};
+    if (args.name)
+        updateData.name = args.name;
+    if (args.fields)
+        updateData.fields = args.fields;
+    if (args.indexes)
+        updateData.indexes = args.indexes;
+    if (args.system !== undefined)
+        updateData.system = args.system;
+    if (args.listRule !== undefined)
+        updateData.listRule = args.listRule;
+    if (args.viewRule !== undefined)
+        updateData.viewRule = args.viewRule;
+    if (args.createRule !== undefined)
+        updateData.createRule = args.createRule;
+    if (args.updateRule !== undefined)
+        updateData.updateRule = args.updateRule;
+    if (args.deleteRule !== undefined)
+        updateData.deleteRule = args.deleteRule;
+    if (args.viewQuery)
+        updateData.viewQuery = args.viewQuery;
+    if (args.manageRule !== undefined)
+        updateData.manageRule = args.manageRule;
+    if (args.authRule !== undefined)
+        updateData.authRule = args.authRule;
+    if (args.passwordAuth)
+        updateData.passwordAuth = args.passwordAuth;
     const collection = await pb.collections.update(args.collection, updateData);
     return {
         content: [{ type: 'text', text: JSON.stringify(collection, null, 2) }],
     };
 }
-
-async function migrateCollectionSchema(args: MigrateCollectionSchemaArgs, pb: PocketBase): Promise<ToolResult> {
+async function migrateCollectionSchema(args, pb) {
     if (!args.collection || !args.newSchema) {
         throw invalidParamsError("Missing required arguments: collection, newSchema");
     }
-
     // Get current collection schema
     const currentCollection = await pb.collections.getOne(args.collection);
     const strategy = args.migrationStrategy || 'preserve';
-
     // Merge new schema with existing, preserving existing fields/data
-    const mergedSchema: any = { ...currentCollection };
-    
+    const mergedSchema = { ...currentCollection };
     if (strategy === 'preserve') {
         // Preserve existing fields and merge new ones
         if (args.newSchema.fields) {
             const existingFields = currentCollection.fields || [];
             const newFields = args.newSchema.fields;
             // Merge: keep existing, add new, update matching by name
-            const fieldMap = new Map(existingFields.map((f: Record<string, any>) => [f.name, f]));
-            newFields.forEach((newField: any) => {
+            const fieldMap = new Map(existingFields.map((f) => [f.name, f]));
+            newFields.forEach((newField) => {
                 fieldMap.set(newField.name, newField);
             });
             mergedSchema.fields = Array.from(fieldMap.values());
@@ -257,87 +257,72 @@ async function migrateCollectionSchema(args: MigrateCollectionSchemaArgs, pb: Po
                 mergedSchema[key] = args.newSchema[key];
             }
         });
-    } else {
+    }
+    else {
         // Replace strategy: use new schema directly
         Object.assign(mergedSchema, args.newSchema);
     }
-
     const collection = await pb.collections.update(args.collection, mergedSchema);
     return {
         content: [{ type: 'text', text: `Collection schema migrated successfully (strategy: ${strategy}).\n${JSON.stringify(collection, null, 2)}` }],
     };
 }
-
-async function createIndex(args: CreateIndexArgs, pb: PocketBase): Promise<ToolResult> {
+async function createIndex(args, pb) {
     if (!args.collection || !args.fields || args.fields.length === 0) {
         throw invalidParamsError("Missing required arguments: collection, fields");
     }
-
     // Get current collection
     const collection = await pb.collections.getOne(args.collection);
     const currentIndexes = collection.indexes || [];
-
     // Generate SQL index statement
     const fieldsStr = args.fields.map(f => `\`${f}\``).join(', ');
     const uniqueStr = args.unique ? 'UNIQUE ' : '';
     const indexName = `idx_${args.fields.join('_')}_${collection.id}`;
     const indexSql = `CREATE ${uniqueStr}INDEX \`${indexName}\` ON \`${collection.name}\` (${fieldsStr})`;
-
     // Check if index already exists
     if (currentIndexes.includes(indexSql)) {
         return {
             content: [{ type: 'text', text: `Index already exists: ${indexName}\n${JSON.stringify(collection, null, 2)}` }],
         };
     }
-
     // Add index to collection
     const updatedIndexes = [...currentIndexes, indexSql];
     const updatedCollection = await pb.collections.update(args.collection, {
         indexes: updatedIndexes
     });
-
     return {
         content: [{ type: 'text', text: `Index created successfully: ${indexName}\n${JSON.stringify(updatedCollection, null, 2)}` }],
     };
 }
-
-async function deleteIndex(args: DeleteIndexArgs, pb: PocketBase): Promise<ToolResult> {
+async function deleteIndex(args, pb) {
     if (!args.collection || !args.indexName) {
         throw invalidParamsError("Missing required arguments: collection, indexName");
     }
-
     // Get current collection
     const collection = await pb.collections.getOne(args.collection);
     const currentIndexes = collection.indexes || [];
-
     // Find and remove index by name (index SQL contains the name)
-    const updatedIndexes = currentIndexes.filter((idx: string) => {
+    const updatedIndexes = currentIndexes.filter((idx) => {
         return !idx.includes(`\`${args.indexName}\``);
     });
-
     if (updatedIndexes.length === currentIndexes.length) {
         return {
             content: [{ type: 'text', text: `Index not found: ${args.indexName}\n${JSON.stringify(collection, null, 2)}` }],
         };
     }
-
     const updatedCollection = await pb.collections.update(args.collection, {
         indexes: updatedIndexes
     });
-
     return {
         content: [{ type: 'text', text: `Index deleted successfully: ${args.indexName}\n${JSON.stringify(updatedCollection, null, 2)}` }],
     };
 }
-
-async function listIndexes(args: ListIndexesArgs, pb: PocketBase): Promise<ToolResult> {
+async function listIndexes(args, pb) {
     if (!args.collection) {
         throw invalidParamsError("Missing required argument: collection");
     }
-
     const collection = await pb.collections.getOne(args.collection);
     const indexes = collection.indexes || [];
-
     return {
         content: [{ type: 'text', text: JSON.stringify({ collection: args.collection, indexes }, null, 2) }],
     };
