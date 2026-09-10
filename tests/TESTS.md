@@ -38,6 +38,17 @@ Integração sem rede/OS suportado → testes PULAM com mensagem (não falham).
 
 ## Cenários pendentes (testes vermelhos por desenho)
 
+> **ATUALIZAÇÃO — integração t_83cd2329 (2026-09-10):** TODOS os 9 ids do
+> registry (16 testes marcadores `itBug`) estão VERDES na branch
+> `integration/v0.40-suite`. ROB-1 foi
+> corrigido (normalização `arguments ?? {}` no router + destructuring
+> defensivo nos handlers) e BUG-5 foi corrigido (generateAddFieldQuery emite
+> `new TextField({...})`/classe tipada pelo field type, com fallback
+> `new Field({...})` — forma validada executando `migrate up/down` nos
+> binários reais v0.40.3 E v0.39.11). `SKIP_KNOWN_BUG_TESTS=1` continua
+> disponível como baseline (agora com skips extras dos próprios marcadores).
+> O conteúdo histórico abaixo é mantido como registro do processo.
+
 `tests/fixtures/known-bugs.ts` é o registry. Testes `itBug/describeBugs`
 documentam o comportamento ESPERADO pós-refactor: falham hoje, ficam verdes
 quando a tarefa de código (t_8510e55a) aplicar as correções, SEM mudar o teste.
