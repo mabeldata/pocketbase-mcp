@@ -73,7 +73,8 @@ async function listLogs(args: ListLogsArgs, pb: PocketBase): Promise<ToolResult>
             page,
             perPage,
             {
-             filter
+             filter,
+             sort
             });
     
     return {

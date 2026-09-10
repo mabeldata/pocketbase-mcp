@@ -97,8 +97,11 @@ async function downloadFile(args: DownloadFileArgs, pb: PocketBase): Promise<Too
          throw invalidParamsError(`File field '${args.fileField}' not found or empty on record ${args.recordId}`);
     }
 
-    // Get the file URL using the filename from the record
-    const fileUrl = pb.files.getUrl(record, fileName); // Use pb.files.getUrl
+    // Get the file URL using the filename from the record.
+    // NOTE: getURL() (not the deprecated getUrl alias) — getUrl() emits a
+    // console.warn on every call which, under the stdio transport, pollutes
+    // stdout and can corrupt the JSON-RPC channel.
+    const fileUrl = pb.files.getURL(record, fileName);
 
     // Return the URL to the client
     return {

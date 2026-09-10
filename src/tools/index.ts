@@ -48,7 +48,13 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
         return handleCollectionToolCall(name, toolArgs, pb);
     } else if (name === 'upload_file' || name === 'download_file') {
         return handleFileToolCall(name, toolArgs, pb);
-    } else if (name === 'create_migration' || name === 'create_collection_migration' || name === 'add_field_migration' || name === 'list_migrations') {
+    } else if (
+        name === 'set_migrations_directory' || name === 'create_migration' ||
+        name === 'create_collection_migration' || name === 'add_field_migration' ||
+        name === 'list_migrations' || name === 'apply_migration' ||
+        name === 'revert_migration' || name === 'apply_all_migrations' ||
+        name === 'revert_to_migration'
+    ) {
         return handleMigrationToolCall(name, toolArgs, pb);
     } else if (name === 'list_logs' || name === 'get_log' || name === 'get_logs_stats') {
         return handleLogToolCall(name, toolArgs, pb);
