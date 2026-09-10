@@ -154,10 +154,13 @@ describe('stdio smoke — build/index.js', () => {
         jsonrpc: '2.0', id: 2, method: 'tools/list', params: {},
       });
       expect(list.error).toBeUndefined();
-      expect(list.result.tools).toHaveLength(22);
+      expect(list.result.tools).toHaveLength(33);
       const names = list.result.tools.map((t: any) => t.name);
       expect(names).toContain('list_collections');
       expect(names).toContain('run_cron_job');
+      // PR-3: registro aditivo visível pelo transporte stdio real
+      expect(names).toContain('delete_record');
+      expect(names).toContain('restore_backup');
 
       // tudo que chegou em stdout ATÉ AQUI parseou como JSON-RPC (o helper
       // rpc() rejeitaria linha não-JSON); nenhuma sobra pendente não-JSON

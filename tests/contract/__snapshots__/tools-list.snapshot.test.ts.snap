@@ -1,5 +1,206 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`tools/list — snapshot do contrato > PR-3: snapshot aditivo das 11 tools novas (nomes + descrições + inputSchemas) 1`] = `
+[
+  {
+    "description": "Execute multiple record create/update/upsert/delete operations in a single transactional batch request (PocketBase >= v0.23). If any operation fails, the whole batch is rolled back by the server. NOTE: on PocketBase >= v0.39 the server disables batch by default — enable it via update_settings with { "batch": { "enabled": true } } or the call fails with 403 "Batch requests are not allowed".",
+    "inputSchema": {
+      "properties": {
+        "requests": {
+          "description": "Ordered list of record operations to execute in one transaction.",
+          "items": {
+            "properties": {
+              "action": {
+                "description": "The record operation.",
+                "enum": [
+                  "create",
+                  "update",
+                  "upsert",
+                  "delete",
+                ],
+                "type": "string",
+              },
+              "collection": {
+                "description": "Collection name or ID this operation targets.",
+                "type": "string",
+              },
+              "data": {
+                "additionalProperties": true,
+                "description": "Record payload (for create/update/upsert).",
+                "type": "object",
+              },
+              "id": {
+                "description": "Record ID (required for update/delete; optional hint for upsert).",
+                "type": "string",
+              },
+            },
+            "required": [
+              "collection",
+              "action",
+            ],
+            "type": "object",
+          },
+          "type": "array",
+        },
+      },
+      "required": [
+        "requests",
+      ],
+      "type": "object",
+    },
+    "name": "batch_records",
+  },
+  {
+    "description": "Create a new database+storage backup on the PocketBase instance. The operation is queued by the server and may take a moment to appear in list_backups.",
+    "inputSchema": {
+      "properties": {
+        "name": {
+          "description": "Optional backup filename; when provided it MUST end in ".zip" and contain only letters, digits, "_" and "-" (e.g., "pre_deploy.zip"). If omitted the server generates "pb_backup_<timestamp>.zip".",
+          "type": "string",
+        },
+      },
+      "required": [],
+      "type": "object",
+    },
+    "name": "create_backup",
+  },
+  {
+    "description": "Delete a record from a PocketBase collection by ID (permanent — the record is removed server-side).",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+        "id": {
+          "description": "The ID of the record to delete.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+        "id",
+      ],
+      "type": "object",
+    },
+    "name": "delete_record",
+  },
+  {
+    "description": "Validate a VIEW collection query without saving the collection (server >= v0.37). Returns the resulting field definitions and a sample of rows, or a validation error.",
+    "inputSchema": {
+      "properties": {
+        "query": {
+          "description": "The SQL SELECT statement backing the view collection.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "query",
+      ],
+      "type": "object",
+    },
+    "name": "dry_run_view_query",
+  },
+  {
+    "description": "Get example collection schema payloads (scaffolds) from the PocketBase instance (server >= v0.37) — an object keyed by collection type (base, auth, view) with ready-to-edit templates for building new collections.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "get_collection_scaffolds",
+  },
+  {
+    "description": "Fetch all PocketBase app settings (meta, logs, smtp, email templates, external stores, etc.). Secret fields are returned masked by the server.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "get_settings",
+  },
+  {
+    "description": "List all backup files available on the PocketBase instance (name, size, last modified).",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "list_backups",
+  },
+  {
+    "description": "Restore the PocketBase instance from an existing backup file. DESTRUCTIVE: replaces all current data. Requires confirm=true.",
+    "inputSchema": {
+      "properties": {
+        "confirm": {
+          "description": "Must be explicitly true to perform the restore.",
+          "type": "boolean",
+        },
+        "key": {
+          "description": "The backup file key/name as returned by list_backups (e.g., "pb_data_20260910_112233.zip").",
+          "type": "string",
+        },
+      },
+      "required": [
+        "key",
+        "confirm",
+      ],
+      "type": "object",
+    },
+    "name": "restore_backup",
+  },
+  {
+    "description": "Execute a raw SQL query against the PocketBase instance (server >= v0.39). DANGEROUS: requires the server process to be started with POCKETBASE_ENABLE_SQL=true; returns an error otherwise. Use read-only queries when possible.",
+    "inputSchema": {
+      "properties": {
+        "query": {
+          "description": "The SQL statement to execute (single statement).",
+          "type": "string",
+        },
+      },
+      "required": [
+        "query",
+      ],
+      "type": "object",
+    },
+    "name": "run_sql",
+  },
+  {
+    "description": "Delete ALL API request logs from the PocketBase instance (server >= v0.40). DESTRUCTIVE and irreversible. Requires confirm=true.",
+    "inputSchema": {
+      "properties": {
+        "confirm": {
+          "description": "Must be explicitly true to delete all logs.",
+          "type": "boolean",
+        },
+      },
+      "required": [
+        "confirm",
+      ],
+      "type": "object",
+    },
+    "name": "truncate_logs",
+  },
+  {
+    "description": "Bulk-update PocketBase app settings with a partial payload (PATCH semantics: only the provided keys change). Provide real values for secret fields — the masked "******" placeholder from get_settings is not accepted by the server.",
+    "inputSchema": {
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "description": "Partial settings payload, e.g. { "logs": { "maxDays": 14 } } or { "meta": { "appName": "My App" } }.",
+          "type": "object",
+        },
+      },
+      "required": [
+        "data",
+      ],
+      "type": "object",
+    },
+    "name": "update_settings",
+  },
+]
+`;
+
 exports[`tools/list — snapshot do contrato > lista completa de tools (nomes + descrições + inputSchemas) 1`] = `
 [
   {

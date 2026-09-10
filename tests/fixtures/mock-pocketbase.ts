@@ -27,6 +27,9 @@ export interface MockPocketBase {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     delete: ReturnType<typeof vi.fn>;
+    // PR-3 (server v0.37+): scaffolds + dry-run de view query
+    getScaffolds: ReturnType<typeof vi.fn>;
+    dryRunViewQuery: ReturnType<typeof vi.fn>;
   };
   logs: {
     getList: ReturnType<typeof vi.fn>;
@@ -43,6 +46,22 @@ export interface MockPocketBase {
     getURL: ReturnType<typeof vi.fn>;
     getToken: ReturnType<typeof vi.fn>;
   };
+  // PR-3: SQL console (v0.39), backups, settings, batch (transacional)
+  sql: {
+    run: ReturnType<typeof vi.fn>;
+  };
+  backups: {
+    getFullList: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    restore: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  };
+  settings: {
+    getAll: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+  };
+  createBatch: ReturnType<typeof vi.fn>;
+  __batchRequests: Array<{ collection: string; method: string; id?: string; data?: any }>;
   health: {
     check: ReturnType<typeof vi.fn>;
   };
@@ -73,6 +92,32 @@ export function createMockRecordService(): MockRecordService {
 export function createMockPocketBase(): MockPocketBase {
   const recordServices = new Map<string, MockRecordService>();
   const collectionCalls: string[] = [];
+  const batchRequests: Array<{ collection: string; method: string; id?: string; data?: any }> = [];
+
+  /**
+   * Mock fiel ao contrato do SubBatchService do SDK: os verbos só EMPILHAM
+   * requests; send() devolve um resultado por request empilhado e limpa a
+   * fila (o batch real é one-shot por instância do createBatch()).
+   */
+  const createBatch = vi.fn(() => {
+    const queued: Array<{ collection: string; method: string; id?: string; data?: any }> = [];
+    const sub = (collection: string) => ({
+      create: (data?: any) => { queued.push({ collection, method: 'POST', data }); },
+      update: (id: string, data?: any) => { queued.push({ collection, method: 'PATCH', id, data }); },
+      upsert: (data?: any) => { queued.push({ collection, method: 'PUT', id: data?.id, data }); },
+      delete: (id: string) => { queued.push({ collection, method: 'DELETE', id }); },
+    });
+    return {
+      collection: vi.fn((name: string) => sub(name)),
+      send: vi.fn(async () => {
+        batchRequests.push(...queued);
+        return queued.map((q, i) => ({
+          status: q.method === 'DELETE' ? 204 : 200,
+          body: q.method === 'DELETE' ? null : { id: `batch_rec_${i}`, ...q.data },
+        }));
+      }),
+    };
+  });
 
   const pb = {
     collection(name: string): MockRecordService {
@@ -89,6 +134,9 @@ export function createMockPocketBase(): MockPocketBase {
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+      // PR-3 (SDK 0.27+, server v0.37+)
+      getScaffolds: vi.fn(),
+      dryRunViewQuery: vi.fn(),
     },
     logs: {
       getList: vi.fn(),
@@ -108,6 +156,22 @@ export function createMockPocketBase(): MockPocketBase {
       getURL: vi.fn(),
       getToken: vi.fn(),
     },
+    // PR-3: SQL console (v0.39), backups, settings, batch (transacional)
+    sql: {
+      run: vi.fn(),
+    },
+    backups: {
+      getFullList: vi.fn(),
+      create: vi.fn(),
+      restore: vi.fn(),
+      delete: vi.fn(),
+    },
+    settings: {
+      getAll: vi.fn(),
+      update: vi.fn(),
+    },
+    createBatch,
+    __batchRequests: batchRequests,
     health: {
       check: vi.fn(),
     },

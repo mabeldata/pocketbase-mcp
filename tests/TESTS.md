@@ -115,14 +115,17 @@ t_83cd2329):
 
 ## Contrato MCP
 
-- Snapshot completo (22 tools: nomes+descrições+inputSchemas) em
-  `tests/contract/__snapshots__/tools-list.snapshot.test.ts.snap`.
-  Regeneração deliberada: `npx vitest run tests/contract -u` + justificativa no PR.
+- Snapshot completo das 22 tools originais (nomes+descrições+inputSchemas) em
+  `tests/contract/__snapshots__/tools-list.snapshot.test.ts.snap` + snapshot
+  ADITIVO separado das 11 tools PR-3 (total 33). O snapshot histórico das 22
+  passa sem regeneração mesmo com adições (drift zero); ferramentas novas têm
+  trava própria. Regeneração deliberada: `npx vitest run tests/contract -u` +
+  justificativa no PR.
 - Handshake real Client↔Server via InMemoryTransport (mock do pocketbase com
   `vi.hoisted` — NUNCA importar fixtures que importam 'pocketbase' dentro da
   factory do vi.mock: deadlock de resolução).
 - stdio smoke: spawn de `node build/index.js`, handshake JSON-RPC por
-  stdin/stdout, tools/list=22, callTool com erro (server inexistente) não
+  stdin/stdout, tools/list=33, callTool com erro (server inexistente) não
   crasha o processo, e sem POCKETBASE_ADMIN_TOKEN → exit!=0 + stderr.
 
 ## Armadilhas de ambiente (aprendidas na prática)

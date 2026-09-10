@@ -11,6 +11,10 @@ import { listLogTools } from '../../src/tools/log-tools.js';
 import { listCronTools } from '../../src/tools/cron-tools.js';
 import { listCollectionTools } from '../../src/tools/collection-tools.js';
 import { listMigrationTools } from '../../src/tools/migration-tools.js';
+import { listSqlTools } from '../../src/tools/sql-tools.js';
+import { listBackupTools } from '../../src/tools/backup-tools.js';
+import { listSettingsTools } from '../../src/tools/settings-tools.js';
+import { listAdminTools } from '../../src/tools/admin-tools.js';
 
 function findTool(name: string) {
   const tool = registerTools().tools.find(t => t.name === name);
@@ -67,7 +71,20 @@ describe('schemas JSON das tools (contrato estático)', () => {
   it('grupos de tools somam o total registrado', () => {
     const total =
       listRecordTools().length + listCollectionTools().length + listFileTools().length +
-      listMigrationTools().length + listLogTools().length + listCronTools().length;
+      listMigrationTools().length + listLogTools().length + listCronTools().length +
+      listSqlTools().length + listBackupTools().length + listSettingsTools().length +
+      listAdminTools().length;
     expect(registerTools().tools).toHaveLength(total);
+  });
+
+  it('PR-3: tools destrutivas/gated exigem confirmação ou gate no schema', () => {
+    // truncate_logs e restore_backup declaram confirm:true como required —
+    // travas de segurança do contrato (reimplementação do PR #8 + gate D5).
+    expect(findTool('truncate_logs').inputSchema.required).toContain('confirm');
+    expect(findTool('restore_backup').inputSchema.required).toContain('confirm');
+    // run_sql está SEMPRE registrada (o gate é em runtime via env); a
+    // descrição deve alertar para o risco — trava do README/docs.
+    expect(findTool('run_sql').description).toMatch(/POCKETBASE_ENABLE_SQL/);
+    expect(findTool('run_sql').description).toMatch(/DANGEROUS/);
   });
 });

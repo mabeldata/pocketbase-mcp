@@ -150,6 +150,25 @@ describeI('integração — records & collections via tools MCP', () => {
     expect(record.location.lon).toBeCloseTo(-46.6333, 3);
   });
 
+  it('filtro geoDistance() (v0.27+) passa pela tool list_records (sintaxe oficial: km)', async () => {
+    // ponto ~2km do centro de SP; o registro acima (-23.5505,-46.6333) entra,
+    // registros sem location não entram na busca < 10km
+    await call('create_record', {
+      collection: TEST_COLLECTION,
+      data: { title: 'geo-longe', location: { lat: -22.9056, lon: -47.0444 } }, // Campinas ~90km
+    }, pb);
+    const result = await call('list_records', {
+      collection: TEST_COLLECTION,
+      filter: 'geoDistance(location.lon, location.lat, -46.6333, -23.5505) <= 10',
+      perPage: 100,
+    }, pb);
+    expect(result.isError).toBeFalsy();
+    const page = JSON.parse(toolText(result));
+    const titles = page.items.map((i: any) => i.title);
+    expect(titles).toContain('com geo');
+    expect(titles).not.toContain('geo-longe');
+  });
+
   it('create_record com id contendo caracteres proibidos → erro de validação (v0.33)', async () => {
     let err: any;
     try {
