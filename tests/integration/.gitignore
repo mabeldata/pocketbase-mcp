@@ -1,0 +1,2 @@
+# estado ephemero dos testes de integração (gerado pelo globalSetup)
+tests/integration/.server.json

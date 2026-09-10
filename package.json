@@ -7,10 +7,15 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node scripts/smoke.mjs --contract-only",
-    "test:integration": "node scripts/smoke.mjs",
     "build": "tsc && chmod +x build/index.js",
-    "smoke": "node scripts/smoke.mjs"
+    "test": "vitest run --config vitest.unit.config.ts",
+    "test:watch": "vitest --config vitest.unit.config.ts",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:contract": "node scripts/smoke.mjs --contract-only"
   },
   "keywords": [
     "mcp",
@@ -26,6 +31,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
   }
 }

@@ -1,0 +1,98 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateAddFieldQuery / generateRemoveFieldQuery > add field: snapshot com options achatadas 1`] = `
+"
+  const collection = app.findCollectionByNameOrId("posts");
+
+  // Add subtitle field
+  collection.fields.add({
+    id: "text_sub",
+    name: "subtitle",
+    type: "text",
+    max: 100
+  });
+
+  return app.save(collection);
+"
+`;
+
+exports[`generateAddFieldQuery / generateRemoveFieldQuery > remove field: snapshot 1`] = `
+"
+  const collection = app.findCollectionByNameOrId("posts");
+
+  // Remove field
+  collection.fields.removeByName("subtitle");
+
+  return app.save(collection);
+"
+`;
+
+exports[`generateCreateCollectionQuery > snapshot de collection completa (formato v0.23+: fields, não schema) 1`] = `
+"
+  const collection = new Collection({
+    id: "pbc_1234567890",
+    name: "posts",
+    type: "base",
+    system: false,
+    fields: [
+    {
+        id: "text_title",
+        name: "title",
+        type: "text",
+        required: true,
+        max: 255
+      },
+    {
+        id: "file_doc",
+        name: "doc",
+        type: "file",
+        maxSelect: 1,
+        maxSize: 5242880,
+        mimeTypes: [
+        "application/pdf"
+      ]
+      }
+  ],
+    indexes: [
+    "CREATE INDEX \`idx_posts_title\` ON \`posts\` (\`title\`)"
+  ],
+    listRule: null,
+    viewRule: "@request.auth.id != """,
+    createRule: null,
+    updateRule: null,
+    deleteRule: null
+  });
+
+  return app.save(collection);
+"
+`;
+
+exports[`generateDeleteCollectionQuery > snapshot 1`] = `
+"
+  const collection = app.findCollectionByNameOrId("pbc_1234567890");
+
+  return app.delete(collection);
+"
+`;
+
+exports[`generateMigrationTemplate > template com up/down customizados 1`] = `
+"/// <reference path="../pb_data/types.d.ts" />
+
+migrate((app) => {
+  const x = 1;
+}, (app) => {
+  const y = 2;
+});
+"
+`;
+
+exports[`generateMigrationTemplate > template vazio com placeholders 1`] = `
+"/// <reference path="../pb_data/types.d.ts" />
+
+migrate((app) => {
+    // add up queries...
+}, (app) => {
+    // add down queries...
+});
+"
+`;
