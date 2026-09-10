@@ -39,7 +39,8 @@ jobs:
 
       - name: Download PocketBase ${{ matrix.pocketbase-version }}
         run: |
-          curl -sL -o pb.zip "https://github.com/pocketbase/pocketbase/releases/download/${{ matrix.pocketbase-version }}/pocketbase_${{ matrix.pocketbase-version }}_linux_amd64.zip"
+          VER="${{ matrix.pocketbase-version }}"
+          curl -fsSL -o pb.zip "https://github.com/pocketbase/pocketbase/releases/download/${VER}/pocketbase_${VER#v}_linux_amd64.zip"
           unzip pb.zip -d /tmp/pb-bin
           chmod +x /tmp/pb-bin/pocketbase
           /tmp/pb-bin/pocketbase --version
