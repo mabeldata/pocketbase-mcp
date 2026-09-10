@@ -1,0 +1,481 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`tools/list — snapshot do contrato > lista completa de tools (nomes + descrições + inputSchemas) 1`] = `
+[
+  {
+    "description": "Create a migration file for adding a field to an existing collection.",
+    "inputSchema": {
+      "properties": {
+        "collectionNameOrId": {
+          "description": "The name or ID of the collection to update.",
+          "type": "string",
+        },
+        "description": {
+          "description": "Optional description override for the filename.",
+          "type": "string",
+        },
+        "fieldDefinition": {
+          "additionalProperties": true,
+          "description": "The schema definition for the new field.",
+          "required": [
+            "name",
+            "type",
+          ],
+          "type": "object",
+        },
+      },
+      "required": [
+        "collectionNameOrId",
+        "fieldDefinition",
+      ],
+      "type": "object",
+    },
+    "name": "add_field_migration",
+  },
+  {
+    "description": "Apply all pending migrations.",
+    "inputSchema": {
+      "properties": {
+        "appliedMigrations": {
+          "description": "Array of already applied migration filenames.",
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+      },
+      "type": "object",
+    },
+    "name": "apply_all_migrations",
+  },
+  {
+    "description": "Apply a specific migration file.",
+    "inputSchema": {
+      "properties": {
+        "migrationFile": {
+          "description": "Name of the migration file to apply.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "migrationFile",
+      ],
+      "type": "object",
+    },
+    "name": "apply_migration",
+  },
+  {
+    "description": "Create a migration file specifically for creating a new PocketBase collection.",
+    "inputSchema": {
+      "properties": {
+        "collectionDefinition": {
+          "additionalProperties": true,
+          "description": "The full schema definition for the new collection (including name, id, fields, rules, etc.).",
+          "required": [
+            "name",
+            "id",
+          ],
+          "type": "object",
+        },
+        "description": {
+          "description": "Optional description override for the filename.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collectionDefinition",
+      ],
+      "type": "object",
+    },
+    "name": "create_collection_migration",
+  },
+  {
+    "description": "Create a new, empty PocketBase migration file with a timestamped name.",
+    "inputSchema": {
+      "properties": {
+        "description": {
+          "description": "A brief description for the migration filename (e.g., "add_user_email_index").",
+          "type": "string",
+        },
+      },
+      "required": [
+        "description",
+      ],
+      "type": "object",
+    },
+    "name": "create_migration",
+  },
+  {
+    "description": "Create a new record in a PocketBase collection.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+        "data": {
+          "additionalProperties": true,
+          "description": "The data for the new record (key-value pairs).",
+          "type": "object",
+        },
+      },
+      "required": [
+        "collection",
+        "data",
+      ],
+      "type": "object",
+    },
+    "name": "create_record",
+  },
+  {
+    "description": "Get the URL to download a file from a PocketBase collection record field.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the collection.",
+          "type": "string",
+        },
+        "fileField": {
+          "description": "The name of the file field.",
+          "type": "string",
+        },
+        "recordId": {
+          "description": "The ID of the record containing the file.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+        "recordId",
+        "fileField",
+      ],
+      "type": "object",
+    },
+    "name": "download_file",
+  },
+  {
+    "description": "Fetch a single record from a PocketBase collection by ID.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+        "id": {
+          "description": "The ID of the record to fetch.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+        "id",
+      ],
+      "type": "object",
+    },
+    "name": "fetch_record",
+  },
+  {
+    "description": "Get the schema (fields, rules, etc.) of a PocketBase collection.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+      ],
+      "type": "object",
+    },
+    "name": "get_collection_schema",
+  },
+  {
+    "description": "Get a single API request log by ID.",
+    "inputSchema": {
+      "properties": {
+        "id": {
+          "description": "The ID of the log to fetch.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "id",
+      ],
+      "type": "object",
+    },
+    "name": "get_log",
+  },
+  {
+    "description": "Get API request logs statistics with optional filtering.",
+    "inputSchema": {
+      "properties": {
+        "filter": {
+          "description": "PocketBase filter string (e.g., "method='GET'").",
+          "type": "string",
+        },
+      },
+      "required": [],
+      "type": "object",
+    },
+    "name": "get_logs_stats",
+  },
+  {
+    "description": "List all collections in the PocketBase instance.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "list_collections",
+  },
+  {
+    "description": "Returns list with all registered app level cron jobs.",
+    "inputSchema": {
+      "properties": {
+        "fields": {
+          "description": "Comma separated string of the fields to return in the JSON response (by default returns all fields). Ex.:?fields=*,expand.relField.name",
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "name": "list_cron_jobs",
+  },
+  {
+    "description": "List API request logs from PocketBase with filtering, sorting, and pagination.",
+    "inputSchema": {
+      "properties": {
+        "filter": {
+          "description": "PocketBase filter string (e.g., "method='GET'").",
+          "type": "string",
+        },
+        "page": {
+          "description": "Page number (defaults to 1).",
+          "minimum": 1,
+          "type": "number",
+        },
+        "perPage": {
+          "description": "Items per page (defaults to 30, max 500).",
+          "maximum": 500,
+          "minimum": 1,
+          "type": "number",
+        },
+        "sort": {
+          "description": "PocketBase sort string (e.g., "-created,url").",
+          "type": "string",
+        },
+      },
+      "required": [],
+      "type": "object",
+    },
+    "name": "list_logs",
+  },
+  {
+    "description": "List all migration files found in the PocketBase migrations directory.",
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object",
+    },
+    "name": "list_migrations",
+  },
+  {
+    "description": "List records from a PocketBase collection. Supports filtering, sorting, pagination, and expansion.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+        "expand": {
+          "description": "PocketBase expand string (e.g., "user,tags.name").",
+          "type": "string",
+        },
+        "filter": {
+          "description": "PocketBase filter string (e.g., "status='active'").",
+          "type": "string",
+        },
+        "page": {
+          "description": "Page number (defaults to 1).",
+          "minimum": 1,
+          "type": "number",
+        },
+        "perPage": {
+          "description": "Items per page (defaults to 30, max 500).",
+          "maximum": 500,
+          "minimum": 1,
+          "type": "number",
+        },
+        "sort": {
+          "description": "PocketBase sort string (e.g., "-created,name").",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+      ],
+      "type": "object",
+    },
+    "name": "list_records",
+  },
+  {
+    "description": "Revert a specific migration file.",
+    "inputSchema": {
+      "properties": {
+        "migrationFile": {
+          "description": "Name of the migration file to revert.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "migrationFile",
+      ],
+      "type": "object",
+    },
+    "name": "revert_migration",
+  },
+  {
+    "description": "Revert migrations up to a specific target.",
+    "inputSchema": {
+      "properties": {
+        "appliedMigrations": {
+          "description": "Array of already applied migration filenames.",
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+        "targetMigration": {
+          "description": "Name of the migration to revert to (exclusive). Use empty string to revert all.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "targetMigration",
+      ],
+      "type": "object",
+    },
+    "name": "revert_to_migration",
+  },
+  {
+    "description": "Triggers a single cron job by its id.",
+    "inputSchema": {
+      "properties": {
+        "jobId": {
+          "description": "The identifier of the cron job to run.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "jobId",
+      ],
+      "type": "object",
+    },
+    "name": "run_cron_job",
+  },
+  {
+    "description": "Set the directory where migration files will be created and read from.",
+    "inputSchema": {
+      "properties": {
+        "customPath": {
+          "description": "Custom path for migrations. If not provided, defaults to "pb_migrations" in the current working directory.",
+          "type": "string",
+        },
+      },
+      "type": "object",
+    },
+    "name": "set_migrations_directory",
+  },
+  {
+    "description": "Update an existing record in a PocketBase collection by ID.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the PocketBase collection.",
+          "type": "string",
+        },
+        "data": {
+          "additionalProperties": true,
+          "description": "The data fields to update (key-value pairs).",
+          "type": "object",
+        },
+        "id": {
+          "description": "The ID of the record to update.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+        "id",
+        "data",
+      ],
+      "type": "object",
+    },
+    "name": "update_record",
+  },
+  {
+    "description": "Upload a file (provided as content string) to a PocketBase collection record field.",
+    "inputSchema": {
+      "properties": {
+        "collection": {
+          "description": "The name or ID of the collection.",
+          "type": "string",
+        },
+        "fileContent": {
+          "description": "The raw content of the file as a string.",
+          "type": "string",
+        },
+        "fileField": {
+          "description": "The name of the file field in the collection schema.",
+          "type": "string",
+        },
+        "fileName": {
+          "description": "The desired name for the uploaded file (e.g., "report.txt").",
+          "type": "string",
+        },
+        "recordId": {
+          "description": "The ID of the record to attach the file to.",
+          "type": "string",
+        },
+      },
+      "required": [
+        "collection",
+        "recordId",
+        "fileField",
+        "fileContent",
+        "fileName",
+      ],
+      "type": "object",
+    },
+    "name": "upload_file",
+  },
+]
+`;
+
+exports[`tools/list — snapshot do contrato > nomes das tools (lista plana — checagem rápida de contrato) 1`] = `
+[
+  "add_field_migration",
+  "apply_all_migrations",
+  "apply_migration",
+  "create_collection_migration",
+  "create_migration",
+  "create_record",
+  "download_file",
+  "fetch_record",
+  "get_collection_schema",
+  "get_log",
+  "get_logs_stats",
+  "list_collections",
+  "list_cron_jobs",
+  "list_logs",
+  "list_migrations",
+  "list_records",
+  "revert_migration",
+  "revert_to_migration",
+  "run_cron_job",
+  "set_migrations_directory",
+  "update_record",
+  "upload_file",
+]
+`;

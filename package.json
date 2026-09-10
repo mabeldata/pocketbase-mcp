@@ -3,20 +3,31 @@
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && chmod +x build/index.js"
+    "build": "tsc && chmod +x build/index.js",
+    "test": "vitest run --config vitest.unit.config.ts",
+    "test:watch": "vitest --config vitest.unit.config.ts",
+    "test:unit": "vitest run --config vitest.unit.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@types/node": "^22.13.10",
     "axios": "^1.8.3",
-    "pocketbase": "^0.25.2",
+    "pocketbase": "^0.28.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   }
 }
