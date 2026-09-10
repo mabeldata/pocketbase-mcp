@@ -5,6 +5,22 @@
 
 This is an MCP server that interacts with a PocketBase instance. It allows you to fetch, list, create, update, and manage records and files in your PocketBase collections.
 
+## Compatibility
+
+| Component | Version |
+|---|---|
+| PocketBase server | **>= v0.23** required (`_superusers` collection model); tested against **v0.40.3** (latest stable at release time) |
+| `pocketbase` JS SDK | ^0.28.1 |
+| `@modelcontextprotocol/sdk` | ^1.30.0 |
+| Node.js | >= 18 |
+
+Notes for newer PocketBase servers:
+
+-   **v0.40.x**: `Log.Data` may be truncated by the server (~16KB) and marked with `"__pb_truncated__": true`; log messages are limited to 8KB. `list_logs` / `get_log` output passes this through as-is.
+-   **v0.38+**: a superuser **IP whitelist** can be enabled in PocketBase Settings. When active, requests from IPs outside the whitelist (including this MCP's token) are rejected with HTTP 403 — see Troubleshooting.
+-   **v0.33+**: collection/record ids may not contain `.` `/` `\` `|` `"` `'` `` ` `` `<` `>` `:` `?` `*` `%` `$` or Windows reserved names. The migration generators validate this up front.
+-   **v0.28+**: the `json` field type has a default maximum size of 1MB; larger payloads fail validation on `create_record` / `update_record`.
+
 ## Installation
 
 ### Installing via Smithery
@@ -29,6 +45,23 @@ npx -y @smithery/cli install @mabeldata/pocketbase-mcp --client claude
     npm run build
     ```
     This compiles the TypeScript code to JavaScript in the `build/` directory and makes the entry point executable.
+
+## Testing
+
+Test suite (vitest, 3 layers — full guide in [tests/TESTS.md](tests/TESTS.md)):
+
+-   `npm test` — unit + contract tests (152 tests, hermetic: no PocketBase instance or network required). The contract layer locks the `tools/list` MCP contract via snapshot (22 tools), a real Client↔Server handshake over InMemoryTransport, and a stdio smoke of the built `build/index.js`.
+-   `npm run test:integration` — integration tests against a **real** PocketBase binary (39 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner.
+-   `npm run test:all` — the full suite (191 tests).
+-   `npm run typecheck` — tsc over src + tests.
+-   `SKIP_KNOWN_BUG_TESTS=1 npm test` — green baseline where known-bug marker tests are skipped instead of run.
+
+End-to-end smoke scripts (drive the built server over stdio against a real PocketBase instance, 37 checks):
+
+-   `npm run smoke:contract` — contract-only smoke (tools/list over stdio, no PocketBase needed).
+-   `npm run smoke` — full smoke: starts an ephemeral server from the binary at `$POCKETBASE_BIN` (default `/tmp/pb-bin/pocketbase`), creates a superuser, then exercises every tool category (records, collections, files, logs, crons, migrations) over the stdio JSON-RPC channel.
+
+CI (`.github/workflows/ci.yml`) runs build + typecheck + hermetic tests + integration tests + smoke on a matrix of Node 18/20/22 × PocketBase v0.39.11/v0.40.3.
 
 ## Configuration
 
@@ -84,9 +117,9 @@ The server provides the following tools, organized by category:
             },
             "perPage": {
               "type": "number",
-              "description": "Items per page (defaults to 25).",
+              "description": "Items per page (defaults to 30, max 500).",
               "minimum": 1,
-              "maximum": 100
+              "maximum": 500
             },
             "filter": {
               "type": "string",
@@ -234,22 +267,17 @@ The server provides the following tools, organized by category:
             },
             "recordId": {
               "type": "string",
-              "description": "The ID of the record to download the file from."
+              "description": "The name of the record containing the file."
             },
             "fileField": {
               "type": "string",
               "description": "The name of the file field in the PocketBase collection."
-            },
-            "downloadPath": {
-              "type": "string",
-              "description": "The path where the downloaded file should be saved (Note: This tool currently returns the URL, download must be handled separately)."
             }
           },
           "required": [
             "collection",
             "recordId",
-            "fileField",
-            "downloadPath"
+            "fileField"
           ]
         }
         ```
@@ -308,11 +336,16 @@ The server provides the following tools, organized by category:
             "filter": {
               "type": "string",
               "description": "PocketBase filter string (e.g., \"method='GET'\")."
+            },
+            "sort": {
+              "type": "string",
+              "description": "PocketBase sort string (e.g., \"-created,url\")."
             }
           },
           "required": []
         }
         ```
+        *Note: on PocketBase >= v0.40 the server may truncate `Log.Data` (~16KB, marked with `"__pb_truncated__": true`) and limit log messages to 8KB.*
 
 -   **get_log**: Get a single API request log by ID.
     -   *Input Schema*:
@@ -533,12 +566,21 @@ The server provides the following tools, organized by category:
 
 ## Migration System
 
-The PocketBase MCP Server includes a comprehensive migration system for managing database schema changes. This system allows you to:
+The PocketBase MCP Server includes a migration system for managing database schema changes. This system allows you to:
 
 1. Create migration files with timestamped names
 2. Generate migrations for common operations (creating collections, adding fields)
 3. Apply and revert migrations individually or in batches
-4. Track which migrations have been applied
+
+### How apply/revert works (and its limits)
+
+Migration files generated by this MCP (`create_collection_migration`, `add_field_migration`) embed a machine-readable marker comment (`// mcp-migration-meta: {...}`) describing their operations as plain data. `apply_migration`, `revert_migration`, `apply_all_migrations` and `revert_to_migration` execute those operations **through the PocketBase REST API** (`pb.collections.*`), which is the only channel available to an MCP client.
+
+Migration files **without** the marker — e.g. hand-written server-side JSVM migrations created with `./pocketbase migrate create` — use the server JSVM API (`migrate()`, `new Collection()`, `app.save()`), which does not exist in a REST client. They cannot be applied through this MCP; the apply tools return an explanatory error pointing to `./pocketbase migrate up` on the PocketBase host. (Previous versions tried to evaluate those files locally with `new Function`, which always failed at runtime.)
+
+Applied-state tracking is **not** stored server-side: `apply_all_migrations` / `revert_to_migration` take an `appliedMigrations` array parameter (the server's `_migrations` table is not exposed to REST clients). Keep that list in your own tooling, or apply/revert individual files.
+
+Generated files remain valid JSVM migrations, so the same file can also be applied on the host with `./pocketbase migrate up` (in which case PocketBase tracks the state in its own `_migrations` table — do not mix both execution paths for the same file).
 
 ### Migration File Format
 
@@ -547,6 +589,7 @@ Migration files are JavaScript files with a timestamp prefix and descriptive nam
 ```javascript
 // 1744005374_update_transactions_add_debt_link.js
 /// <reference path="../pb_data/types.d.ts" />
+// mcp-migration-meta: {"ops":{"up":[...],"down":[...]}}   <- only in MCP-generated files
 migrate((app) => {
   // Up migration code here
   return app.save();
@@ -652,10 +695,16 @@ To use this server with Cline, you need to add it to your MCP settings file (`cl
 
 3.  **Save the settings file.** Cline should automatically detect the changes and connect to the server. You can then use the tools listed above.
 
+## Troubleshooting
+
+-   **HTTP 403 on every request**: since PocketBase v0.38 you can enable a superuser **IP whitelist** (Admin UI -> Settings). If enabled, add the IP of the machine running this MCP server (or disable the whitelist).
+-   **`FATAL: POCKETBASE_ADMIN_TOKEN environment variable is required`**: the token env var is not set; generate an API key in the PocketBase admin UI (superuser -> API keys) and set `POCKETBASE_ADMIN_TOKEN`.
+-   **Health-check warning on stderr at startup**: the configured `POCKETBASE_API_URL` is unreachable (instance down or wrong URL). The MCP still starts so `tools/list` works, but tool calls will fail until the instance is reachable.
+-   **`Cannot apply ...: This migration file does not contain MCP metadata`**: the file is a server-side JSVM migration; run `./pocketbase migrate up` on the PocketBase host instead (see Migration System).
+
 ## Dependencies
 
--   `@modelcontextprotocol/sdk`
--   `pocketbase`
--   `typescript`
--   `ts-node` (dev dependency)
+-   `@modelcontextprotocol/sdk` (^1.30.0)
+-   `pocketbase` (^0.28.1)
+-   `typescript` (dev dependency)
 -   `@types/node` (dev dependency)

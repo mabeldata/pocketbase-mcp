@@ -67,7 +67,6 @@ export interface DownloadFileArgs {
   collection: string;
   recordId: string;
   fileField: string;
-  downloadPath: string;
 }
 
 export interface ListCollectionsArgs {} // No arguments

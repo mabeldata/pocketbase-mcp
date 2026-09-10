@@ -53,7 +53,9 @@ export async function handleCronToolCall(name: string, args: any, pb: PocketBase
 // --- Individual Tool Implementations ---
 
 async function listCronJobs(args: ListCronJobsArgs, pb: PocketBase): Promise<ToolResult> {
-    const { fields } = args;
+    // MCP clients may omit `arguments` entirely when the schema has no
+    // required properties — normalize to {} so defaults apply (ROB-1).
+    const { fields } = args ?? {};
 
     try {
         const result = await pb.crons.getFullList({
@@ -77,7 +79,7 @@ async function listCronJobs(args: ListCronJobsArgs, pb: PocketBase): Promise<Too
 }
 
 async function runCronJob(args: RunCronJobArgs, pb: PocketBase): Promise<ToolResult> {
-    if (!args.jobId) {
+    if (!args?.jobId) {
         throw invalidParamsError("Missing required argument: jobId");
     }
     

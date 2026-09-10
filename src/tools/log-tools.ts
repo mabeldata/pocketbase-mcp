@@ -67,13 +67,16 @@ export async function handleLogToolCall(name: string, args: any, pb: PocketBase)
 // --- Individual Tool Implementations ---
 
 async function listLogs(args: ListLogsArgs, pb: PocketBase): Promise<ToolResult> {
-    const { page = 1, perPage = 30, filter, sort } = args;
+    // MCP clients may omit `arguments` entirely when the schema has no
+    // required properties — normalize to {} so defaults apply (ROB-1).
+    const { page = 1, perPage = 30, filter, sort } = args ?? {};
     // Make the API request to list logs
     const result = await pb.logs.getList(
             page,
             perPage,
             {
-             filter
+             filter,
+             sort
             });
     
     return {
@@ -82,7 +85,7 @@ async function listLogs(args: ListLogsArgs, pb: PocketBase): Promise<ToolResult>
 }
 
 async function getLog(args: GetLogArgs, pb: PocketBase): Promise<ToolResult> {
-    if (!args.id) {
+    if (!args?.id) {
         throw invalidParamsError("Missing required argument: id");
     }
     
@@ -95,7 +98,8 @@ async function getLog(args: GetLogArgs, pb: PocketBase): Promise<ToolResult> {
 }
 
 async function getLogsStats(args: GetLogsStatsArgs, pb: PocketBase): Promise<ToolResult> {
-    const { filter } = args;
+    // See ROB-1 note in listLogs: `arguments` may be undefined.
+    const { filter } = args ?? {};
     
     try {
         // Make the API request to get logs statistics

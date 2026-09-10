@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Define the migrations directory with configuration capability
-let MIGRATIONS_DIR: string;
+let MIGRATIONS_DIR: string = path.resolve(process.cwd(), 'pb_migrations');
 
 /**
  * Sets the directory where migration files will be created and read from.
@@ -26,8 +26,16 @@ export function setMigrationsDirectory(customPath?: string): string {
     return MIGRATIONS_DIR;
 }
 
-// Initialize with default
-setMigrationsDirectory();
+/**
+ * Returns the currently configured migrations directory WITHOUT changing it.
+ * Used by the execution functions so that a directory previously set via
+ * set_migrations_directory (e.g. through the set_migrations_directory tool)
+ * is preserved across apply/revert calls.
+ * @returns The resolved absolute path to the migrations directory.
+ */
+export function getMigrationsDirectory(): string {
+    return MIGRATIONS_DIR;
+}
 
 /**
  * Creates a new migration file with the given content.
@@ -68,7 +76,7 @@ export async function createMigrationFile(filename: string, content: string): Pr
         }
 
         await fs.writeFile(filePath, content, 'utf-8');
-        console.log(`Migration file created: ${filePath}`); // Log success
+        console.error(`Migration file created: ${filePath}`); // Log success (stderr; stdout is the JSON-RPC channel)
         return filePath;
     } catch (error: any) {
         console.error(`Error creating migration file ${filename}:`, error);

@@ -39,8 +39,10 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
     // }
 
     // Route based on tool name prefix or category (adjust logic as needed)
-    // Ensure args is treated as 'any' or validated properly before passing
-    const toolArgs = args as any;
+    // Ensure args is treated as 'any' or validated properly before passing.
+    // Normalize undefined -> {} once at the router so handlers can safely
+    // destructure (ROB-1); handlers keep their own guards as defense in depth.
+    const toolArgs = (args ?? {}) as any;
 
     if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record') {
         return handleRecordToolCall(name, toolArgs, pb);
@@ -48,7 +50,13 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
         return handleCollectionToolCall(name, toolArgs, pb);
     } else if (name === 'upload_file' || name === 'download_file') {
         return handleFileToolCall(name, toolArgs, pb);
-    } else if (name === 'create_migration' || name === 'create_collection_migration' || name === 'add_field_migration' || name === 'list_migrations') {
+    } else if (
+        name === 'set_migrations_directory' || name === 'create_migration' ||
+        name === 'create_collection_migration' || name === 'add_field_migration' ||
+        name === 'list_migrations' || name === 'apply_migration' ||
+        name === 'revert_migration' || name === 'apply_all_migrations' ||
+        name === 'revert_to_migration'
+    ) {
         return handleMigrationToolCall(name, toolArgs, pb);
     } else if (name === 'list_logs' || name === 'get_log' || name === 'get_logs_stats') {
         return handleLogToolCall(name, toolArgs, pb);

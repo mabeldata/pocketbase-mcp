@@ -1,14 +1,21 @@
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { ClientResponseError } from 'pocketbase';
 import { ToolError } from '../types/tool-types.js'; // Import directly from tool-types
 
 /**
  * Formats an error into the standard MCP ToolError structure.
+ *
+ * PocketBase API errors (ClientResponseError) are enriched with the HTTP
+ * status and the per-field validation errors returned by the server
+ * (`response.data`), so the consuming LLM gets actionable detail. The
+ * underlying cause (SDK >= 0.26.1) is appended when available.
+ *
  * @param error The error object or message.
  * @param defaultCode The default ErrorCode to use if the error is not an McpError.
  * @returns A ToolError object.
  */
 export function formatError(error: unknown, defaultCode: ErrorCode = ErrorCode.InternalError): ToolError {
-  console.error('[MCP Server Error]', error); // Log the full error internally
+  console.error('[MCP Server Error]', error); // Log the full error internally (stderr; stdout is the JSON-RPC channel)
 
   let message: string;
   let code: ErrorCode;
@@ -16,6 +23,33 @@ export function formatError(error: unknown, defaultCode: ErrorCode = ErrorCode.I
   if (error instanceof McpError) {
     message = error.message;
     code = error.code;
+  } else if (error instanceof ClientResponseError) {
+    code = defaultCode;
+    const parts: string[] = [];
+    if (error.status) {
+      parts.push(`HTTP ${error.status}`);
+    }
+    parts.push(error.message || 'PocketBase API request failed');
+
+    // Per-field validation errors, e.g. { name: { code: "validation_required", message: "..." } }
+    const data = error.response?.data;
+    if (data && typeof data === 'object') {
+      const fieldErrors = Object.entries(data)
+        .filter(([, v]) => v && typeof v === 'object' && typeof (v as any).message === 'string')
+        .map(([field, v]) => `${field}: ${(v as any).message}`);
+      if (fieldErrors.length > 0) {
+        parts.push(`field errors -> ${fieldErrors.join('; ')}`);
+      }
+    }
+
+    // Underlying transport error (ClientResponseError.originalError, exposed as
+    // .cause at runtime since JS SDK 0.26.1)
+    const causeMessage = (error.originalError as any)?.message;
+    if (causeMessage && causeMessage !== error.message) {
+      parts.push(`cause: ${causeMessage}`);
+    }
+
+    message = parts.join(' | ');
   } else if (error instanceof Error) {
     message = error.message;
     code = defaultCode;
@@ -23,8 +57,6 @@ export function formatError(error: unknown, defaultCode: ErrorCode = ErrorCode.I
     message = 'An unknown error occurred';
     code = ErrorCode.InternalError; // Use InternalError as fallback
   }
-
-  // You could add more specific error handling here, e.g., for PocketBase errors
 
   return {
     content: [{
