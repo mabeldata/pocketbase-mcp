@@ -4,16 +4,19 @@ FROM node:lts-alpine
 # Create app directory
 WORKDIR /app
 
-# Install app dependencies
+# Install app dependencies (dev dependencies are required for the TypeScript build)
 COPY package*.json ./
 
-RUN npm install --production --ignore-scripts
+RUN npm ci --ignore-scripts
 
 # Bundle app source
 COPY . .
 
 # Build the project
 RUN npm run build
+
+# Drop dev dependencies after the build to keep the runtime image lean
+RUN npm prune --production
 
 # Expose any ports if needed, else CMD
 CMD ["node", "build/index.js"]

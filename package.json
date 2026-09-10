@@ -1,22 +1,31 @@
 {
   "name": "pocketbase-mcp",
-  "version": "1.0.0",
-  "main": "index.js",
+  "version": "1.1.0",
+  "main": "build/index.js",
   "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc && chmod +x build/index.js"
+  "engines": {
+    "node": ">=18"
   },
-  "keywords": [],
+  "scripts": {
+    "test": "node scripts/smoke.mjs --contract-only",
+    "test:integration": "node scripts/smoke.mjs",
+    "build": "tsc && chmod +x build/index.js",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "pocketbase"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "MCP server for interacting with a PocketBase instance (records, collections, files, logs, crons and migrations).",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "pocketbase": "^0.28.1"
+  },
+  "devDependencies": {
     "@types/node": "^22.13.10",
-    "axios": "^1.8.3",
-    "pocketbase": "^0.25.2",
-    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   }
 }
