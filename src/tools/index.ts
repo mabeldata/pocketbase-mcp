@@ -10,6 +10,10 @@ import { listFileTools, handleFileToolCall } from './file-tools.js';
 import { listMigrationTools, handleMigrationToolCall } from './migration-tools.js'; // Uncommented
 import { listLogTools, handleLogToolCall } from './log-tools.js'; // Import log tools
 import { listCronTools, handleCronToolCall } from './cron-tools.js'; // Import cron tools
+import { listSqlTools, handleSqlToolCall } from './sql-tools.js'; // PR-3: gated raw SQL (v0.39)
+import { listBackupTools, handleBackupToolCall } from './backup-tools.js'; // PR-3: backups API
+import { listSettingsTools, handleSettingsToolCall } from './settings-tools.js'; // PR-3: settings API
+import { listAdminTools, handleAdminToolCall } from './admin-tools.js'; // PR-3: scaffolds/view-dry-run/batch (v0.37+)
 
 // Combine all tool definitions
 export function registerTools(): { tools: ToolInfo[] } { // Use ToolInfo[]
@@ -20,6 +24,10 @@ export function registerTools(): { tools: ToolInfo[] } { // Use ToolInfo[]
         ...listMigrationTools(), // Uncommented
         ...listLogTools(), // Add log tools
         ...listCronTools(), // Add cron tools
+        ...listSqlTools(), // PR-3: run_sql (env-gated)
+        ...listBackupTools(), // PR-3: list/create/restore backups
+        ...listSettingsTools(), // PR-3: get/update settings
+        ...listAdminTools(), // PR-3: scaffolds, dry_run_view_query, batch_records
     ];
     return { tools };
 }
@@ -44,7 +52,7 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
     // destructure (ROB-1); handlers keep their own guards as defense in depth.
     const toolArgs = (args ?? {}) as any;
 
-    if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record') {
+    if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record' || name === 'delete_record') {
         return handleRecordToolCall(name, toolArgs, pb);
     } else if (name === 'get_collection_schema' || name === 'list_collections') {
         return handleCollectionToolCall(name, toolArgs, pb);
@@ -58,10 +66,18 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
         name === 'revert_to_migration'
     ) {
         return handleMigrationToolCall(name, toolArgs, pb);
-    } else if (name === 'list_logs' || name === 'get_log' || name === 'get_logs_stats') {
+    } else if (name === 'list_logs' || name === 'get_log' || name === 'get_logs_stats' || name === 'truncate_logs') {
         return handleLogToolCall(name, toolArgs, pb);
     } else if (name === 'list_cron_jobs' || name === 'run_cron_job') {
         return handleCronToolCall(name, toolArgs, pb);
+    } else if (name === 'run_sql') {
+        return handleSqlToolCall(name, toolArgs, pb);
+    } else if (name === 'list_backups' || name === 'create_backup' || name === 'restore_backup') {
+        return handleBackupToolCall(name, toolArgs, pb);
+    } else if (name === 'get_settings' || name === 'update_settings') {
+        return handleSettingsToolCall(name, toolArgs, pb);
+    } else if (name === 'get_collection_scaffolds' || name === 'dry_run_view_query' || name === 'batch_records') {
+        return handleAdminToolCall(name, toolArgs, pb);
     } else {
         throw methodNotFoundError(name);
     }
