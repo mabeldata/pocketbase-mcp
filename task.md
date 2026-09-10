@@ -14,7 +14,7 @@ This file is used to track tasks. Tasks are marked with `[ ]` for incomplete and
 - [ ] **Collection Management Tools:**
     - [X] Add a tool to list all collections in the PocketBase instance (`list_collections`).
     - [X] Implement a tool to get schema of a specific collection (`get_collection_schema`).
-    - [ ] Implement tools for Collection Management:
+    - [X] Implement tools for Collection Management:
         - [ ] Create and manage collections with custom schemas (`create_collection`, `update_collection`)
         - [ ] Migrate collection schemas with data preservation (`migrate_collection_schema`)
         - [ ] Advanced index management tools:
@@ -22,17 +22,18 @@ This file is used to track tasks. Tasks are marked with `[ ]` for incomplete and
             - [ ] Delete indexes (`delete_index`)
             - [ ] List indexes (`list_indexes`)
         - [ ] Implement schema validation and type safety (This might be more of an implementation detail within other tools, but could be a task to ensure it's properly handled)
+        - [X] Expose collection meta endpoints (`get_collection_scaffolds`, `dry_run_view_query`) — PR-3, server >= v0.37
 
 - [ ] **File Handling Tools:**
     - [ ] Implement a tool to upload files to a PocketBase collection with file fields (`upload_file`).
     - [ ] Add a tool to download files from a PocketBase collection (`download_file`).
 
 - [ ] **Record Operations:**
-    - [ ] Implement a tool to delete a record from a PocketBase collection (`delete_record`).
+    - [X] Implement a tool to delete a record from a PocketBase collection (`delete_record`).
     - [ ] Enhance Record Operations:
         - [ ] Implement advanced querying with aggregation (`list_records` with aggregation support)
         - [ ] Implement batch import/export capabilities:
-            - [ ] Batch record import (`batch_import_records`)
+            - [X] Batch record operations with transactional semantics (`batch_records` via /api/batch) — PR-3
             - [ ] Batch record export (`batch_export_records`)
 
 - [ ] **User Management Tools:**
@@ -45,11 +46,11 @@ This file is used to track tasks. Tasks are marked with `[ ]` for incomplete and
 
 - [ ] **Database Operation Tools:**
     - [ ] Implement Database Operation Tools:
-        - [ ] Database backup and restore tools: (`backup_database`, `restore_database`)
+        - [X] Database backup and restore tools: (`list_backups`, `create_backup`, `restore_backup`) + app settings (`get_settings`, `update_settings`) — PR-3
         - [ ] Multiple export formats (`export_database_json`, `export_database_csv`)
         - [ ] Data migration tools (This is a broad task and might need further definition)
         - [ ] Index optimization tools (`optimize_indexes`)
-        - [ ] Batch operations (This might overlap with Batch Record Operations, needs clarification)
+        - [ ] Batch operations (covered transactionally by `batch_records` — PR-3)
 
 - [ ] **Realtime Subscription Tools (Advanced):**
     - [ ] Explore adding tools to subscribe to realtime events for specific collections (`subscribe_collection`).
