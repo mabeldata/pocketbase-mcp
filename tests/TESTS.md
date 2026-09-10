@@ -42,14 +42,32 @@ Integração sem rede/OS suportado → testes PULAM com mensagem (não falham).
 documentam o comportamento ESPERADO pós-refactor: falham hoje, ficam verdes
 quando a tarefa de código (t_8510e55a) aplicar as correções, SEM mudar o teste.
 
+VALIDAÇÃO CRUZADA (2026-09-10): a suíte foi rodada contra o src refatorado da
+tarefa t_8510e55a (branch com routing/sort/getURL/error-handler/stderr/REST-D1
+corrigidos). Resultado: 139 passed / 1 failed / 12 skipped — 10 dos 11
+marcadores ficaram VERDES sem tocar nos testes (a mecânica de seleção
+automática de suíte em migration-execution.test.ts trocou legacy→REST sozinha).
+Os 2 achados que PERMANECEM vermelhos no código refatorado (handoff para
+t_83cd2329):
+
+- ROB-1: `arguments` undefined ainda crasha list_logs/get_logs_stats/list_cron_jobs
+  (TypeError no destructuring) — correção não aplicada;
+- BUG-5: o corpo JSVM gerado por generateAddFieldQuery ainda usa
+  `collection.fields.add({objeto puro})` — o redesign REST não o torna
+  irrelevante: os arquivos gerados PRECISAM continuar válidos para
+  `./pocketbase migrate up` no host, e o runner v0.40.3 rejeita essa forma
+  ("could not convert [object Object] to core.Field"). Correção: emitir
+  `new TextField({...})`/`new Field({...})` no corpo JSVM (forma validada por
+  controle positivo nesta suíte, em v0.39.11 E v0.40.3).
+
 | Id | Onde | Problema |
 |---|---|---|
 | BUG-1 | src/tools/index.ts | 5 das 9 migration tools não roteadas (MethodNotFound) |
 | BUG-2 | src/tools/log-tools.ts | `sort` de list_logs nunca repassado (unit + integração real) |
 | BUG-3 | src/tools/file-tools.ts | `pb.files.getUrl()` deprecated → usar `getURL()` (console.warn corrompe stdio) |
-| BUG-4 | src/migrations/execution.ts | JSVM de servidor executado contra client REST (redesign D1; mecânica atual travada em migration-execution.test.ts) |
+| BUG-4 | src/migrations/execution.ts | JSVM de servidor executado contra client REST (redesign D1); migration-execution.test.ts tem suíte dupla legacy/REST com seleção automática por `parseMigrationMeta` |
 | BUG-5 | src/migrations/helpers/template.ts | **ACHADO NOVO desta suíte**: `fields.add({objeto puro})` é ACEITO pelo runner v0.39.11 mas REJEITADO pelo v0.40.3 (`could not convert [object Object] to core.Field`). Forma correta validada: `new TextField({...})`/`new Field({...})` + `fields.add` (controle positivo no teste de integração passa em ambas as versões) |
-| ROB-1 | src/tools/log-tools.ts (+cron) | `arguments` undefined → TypeError (MCP permite quando não há required) |
+| ROB-1 | src/tools/log-tools.ts (+cron) | `arguments` undefined → TypeError (MCP permite quando não há required) — **persiste no refactor** |
 | ROB-2 | src/server/pocketbase-server.ts | mensagens SIGINT/SIGTERM via console.log → STDOUT corrompe JSON-RPC no shutdown; usar console.error |
 | ERR-1 | src/server/error-handler.ts | ClientResponseError deveria expor status + response.data por campo |
 | ID-1 | src/migrations | ids não validados contra regras de caracteres do v0.33 |
