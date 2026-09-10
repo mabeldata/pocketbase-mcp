@@ -1,7 +1,7 @@
 import PocketBase from 'pocketbase';
 import {
     ToolResult, ToolInfo,
-    ListLogsArgs, GetLogArgs, GetLogsStatsArgs
+    ListLogsArgs, GetLogArgs, GetLogsStatsArgs, TruncateLogsArgs
 } from '../types/index.js';
 import { invalidParamsError } from '../server/error-handler.js';
 
@@ -43,6 +43,17 @@ const logToolInfo: ToolInfo[] = [
             required: [],
         },
     },
+    {
+        name: 'truncate_logs',
+        description: 'Delete ALL API request logs from the PocketBase instance (server >= v0.40). DESTRUCTIVE and irreversible. Requires confirm=true.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                confirm: { type: 'boolean', description: 'Must be explicitly true to delete all logs.' },
+            },
+            required: ['confirm'],
+        },
+    },
 ];
 
 export function listLogTools(): ToolInfo[] {
@@ -58,6 +69,8 @@ export async function handleLogToolCall(name: string, args: any, pb: PocketBase)
             return getLog(args as GetLogArgs, pb);
         case 'get_logs_stats':
             return getLogsStats(args as GetLogsStatsArgs, pb);
+        case 'truncate_logs':
+            return truncateLogs(args as TruncateLogsArgs, pb);
         default:
             // This case should ideally not be reached due to routing in index.ts
             throw new Error(`Unknown log tool: ${name}`);
@@ -120,4 +133,19 @@ async function getLogsStats(args: GetLogsStatsArgs, pb: PocketBase): Promise<Too
         }
         throw error;
     }
+}
+
+async function truncateLogs(args: TruncateLogsArgs, pb: PocketBase): Promise<ToolResult> {
+    // Destructive operation (DELETE /api/logs, server >= v0.40): refuse
+    // unless explicitly confirmed, same convention as restore_backup.
+    if (args?.confirm !== true) {
+        throw invalidParamsError(
+            "truncate_logs deletes ALL API logs and is irreversible. " +
+            "Re-run with confirm=true to proceed."
+        );
+    }
+    const result = await pb.logs.truncate();
+    return {
+        content: [{ type: 'text', text: JSON.stringify({ truncated: result }, null, 2) }],
+    };
 }

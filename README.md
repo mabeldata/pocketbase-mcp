@@ -16,6 +16,7 @@ This is an MCP server that interacts with a PocketBase instance. It allows you t
 
 Notes for newer PocketBase servers:
 
+-   **v0.27+**: the `geoPoint` field type and the `geoDistance()` filter function are fully supported by `list_records` / `batch_records` — see [Filter examples with geoPoint](#filter-examples-geopoint).
 -   **v0.40.x**: `Log.Data` may be truncated by the server (~16KB) and marked with `"__pb_truncated__": true`; log messages are limited to 8KB. `list_logs` / `get_log` output passes this through as-is.
 -   **v0.38+**: a superuser **IP whitelist** can be enabled in PocketBase Settings. When active, requests from IPs outside the whitelist (including this MCP's token) are rejected with HTTP 403 — see Troubleshooting.
 -   **v0.33+**: collection/record ids may not contain `.` `/` `\` `|` `"` `'` `` ` `` `<` `>` `:` `?` `*` `%` `$` or Windows reserved names. The migration generators validate this up front.
@@ -50,13 +51,13 @@ npx -y @smithery/cli install @mabeldata/pocketbase-mcp --client claude
 
 Test suite (vitest, 3 layers — full guide in [tests/TESTS.md](tests/TESTS.md)):
 
--   `npm test` — unit + contract tests (152 tests, hermetic: no PocketBase instance or network required). The contract layer locks the `tools/list` MCP contract via snapshot (22 tools), a real Client↔Server handshake over InMemoryTransport, and a stdio smoke of the built `build/index.js`.
--   `npm run test:integration` — integration tests against a **real** PocketBase binary (39 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner.
--   `npm run test:all` — the full suite (191 tests).
+-   `npm test` — unit + contract tests (207: 195 passing + 12 documented known-bug markers; hermetic: no PocketBase instance or network required). The contract layer locks the `tools/list` MCP contract via snapshot (33 tools: the 22 original + 11 additive PR-3 tools, each group snapshotted separately), a real Client↔Server handshake over InMemoryTransport, and a stdio smoke of the built `build/index.js`.
+-   `npm run test:integration` — integration tests against a **real** PocketBase binary (56 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner. The PR-3 suite (`pr3-tools.test.ts`) boots its **own** dedicated instance (admin-scope endpoints — SQL, batch, backups, settings, log clear — must not race siblings on the shared server; see the file header).
+-   `npm run test:all` — the full suite (263 tests).
 -   `npm run typecheck` — tsc over src + tests.
 -   `SKIP_KNOWN_BUG_TESTS=1 npm test` — green baseline where known-bug marker tests are skipped instead of run.
 
-End-to-end smoke scripts (drive the built server over stdio against a real PocketBase instance, 37 checks):
+End-to-end smoke scripts (drive the built server over stdio against a real PocketBase instance, 53 checks):
 
 -   `npm run smoke:contract` — contract-only smoke (tools/list over stdio, no PocketBase needed).
 -   `npm run smoke` — full smoke: starts an ephemeral server from the binary at `$POCKETBASE_BIN` (default `/tmp/pb-bin/pocketbase`), creates a superuser, then exercises every tool category (records, collections, files, logs, crons, migrations) over the stdio JSON-RPC channel.
@@ -69,6 +70,7 @@ This server requires the following environment variables to be set:
 
 -   `POCKETBASE_API_URL`: The URL of your PocketBase instance (e.g., `http://127.0.0.1:8090`). Defaults to `http://127.0.0.1:8090` if not set.
 -   `POCKETBASE_ADMIN_TOKEN`: An admin authentication token for your PocketBase instance. **This is required.** You can generate this from your PocketBase admin UI, see [API KEYS](https://pocketbase.io/docs/authentication/#api-keys).
+-   `POCKETBASE_ENABLE_SQL`: **Optional, default disabled.** Gates the `run_sql` tool (raw SQL execution). See [SQL Execution (run_sql)](#sql-execution-run_sql--security-gated) below — only set it to `true` if you understand the risks.
 
 These variables need to be configured when adding the server to Cline (see Cline Installation section).
 
@@ -191,6 +193,52 @@ The server provides the following tools, organized by category:
         }
         ```
 
+-   **delete_record**: Delete a record from a PocketBase collection by ID (permanent).
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "collection": {
+              "type": "string",
+              "description": "The name or ID of the PocketBase collection."
+            },
+            "id": {
+              "type": "string",
+              "description": "The ID of the record to delete."
+            }
+          },
+          "required": [
+            "collection",
+            "id"
+          ]
+        }
+        ```
+
+-   **batch_records**: Execute multiple record operations (create/update/upsert/delete) in ONE transactional batch — if any operation fails, the whole batch rolls back. **Requires server-side batch enabled**: on PocketBase >= v0.39 `/api/batch` is OFF by default; enable it via `update_settings` with `{"batch": {"enabled": true}}` (or Admin UI -> Settings), otherwise calls fail with HTTP 403 "Batch requests are not allowed".
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "requests": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "collection": { "type": "string" },
+                  "action": { "enum": ["create", "update", "upsert", "delete"] },
+                  "id": { "type": "string" },
+                  "data": { "type": "object", "additionalProperties": true }
+                },
+                "required": ["collection", "action"]
+              }
+            }
+          },
+          "required": ["requests"]
+        }
+        ```
+
 -   **get_collection_schema**: Get the schema of a PocketBase collection.
     -   *Input Schema*:
         ```json
@@ -283,6 +331,24 @@ The server provides the following tools, organized by category:
         ```
         *Note: This tool returns the file URL. The actual download needs to be performed by the client using this URL.*
 
+### Filter examples: geoPoint
+
+PocketBase >= v0.27 supports the `geoPoint` field type and the `geoDistance()` filter function. Both work transparently through `list_records` / `create_record` / `update_record` / `batch_records` (the filter string is passed to the server as-is):
+
+```jsonc
+// store a location: create_record data payload (location is a geoPoint field)
+{ "title": "Office", "location": { "lat": -23.5505, "lon": -46.6333 } }
+
+// geoDistance(lonA, latA, lonB, latB) returns KILOMETRES (verified on v0.40.3) —
+// offices within 10 km of São Paulo center (list_records filter):
+{ "collection": "places", "filter": "geoDistance(location.lon, location.lat, -46.6333, -23.5505) <= 10" }
+
+// combine with other conditions:
+{ "collection": "places", "filter": "active = true && geoDistance(location.lon, location.lat, -46.6333, -23.5505) < 5" }
+```
+
+Arguments must be plain numbers or numeric field identifiers (`location.lon` / `location.lat` for a `geoPoint` field); a geometry-literal like `{-23.55, -46.63}` is NOT valid, and `geoDistance()` is currently not supported in `sort`. Official docs: https://pocketbase.io/docs/api-rules-and-filters/ (geoDistance section).
+
 ### Collection Management
 
 -   **list_collections**: List all collections in the PocketBase instance.
@@ -309,6 +375,21 @@ The server provides the following tools, organized by category:
           "required": [
             "collection"
           ]
+        }
+        ```
+
+-   **get_collection_scaffolds**: Get example collection schema payloads (server >= v0.37) — an object keyed by collection type (`base`, `auth`, `view`) with ready-to-edit templates for building new collections.
+    -   *Input Schema*: `{ "type": "object", "properties": {}, "additionalProperties": false }`
+
+-   **dry_run_view_query**: Validate a VIEW collection SQL query without saving the collection (server >= v0.37). Returns the resulting field definitions and a sample of rows, or a validation error.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "description": "The SQL SELECT statement backing the view collection." }
+          },
+          "required": ["query"]
         }
         ```
 
@@ -379,6 +460,18 @@ The server provides the following tools, organized by category:
         }
         ```
 
+-   **truncate_logs**: Delete ALL API request logs (server >= v0.40). DESTRUCTIVE and irreversible — requires `confirm: true`.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "confirm": { "type": "boolean", "description": "Must be explicitly true to delete all logs." }
+          },
+          "required": ["confirm"]
+        }
+        ```
+
 ### Cron Job Management
 
 > **Note:** The Cron Jobs API requires admin authentication and may not be available in all PocketBase instances or configurations. These tools interact with the PocketBase Cron Jobs API.
@@ -413,6 +506,77 @@ The server provides the following tools, organized by category:
           ]
         }
         ```
+
+### Backup Management
+
+> **Note:** The Backup API requires superuser authentication (server >= v0.22). Docs: https://pocketbase.io/docs/api-backups/.
+
+-   **list_backups**: List all backup files available on the instance (`key`, `size`, `modified`).
+    -   *Input Schema*: `{ "type": "object", "properties": {}, "additionalProperties": false }`
+
+-   **create_backup**: Queue a new database+storage backup. Optional `name` must end in `.zip` (letters, digits, `_`, `-` only); omitted → the server generates `pb_backup_<timestamp>.zip`. Backups are processed asynchronously — poll `list_backups` for the new key.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "Optional backup filename ending in .zip." }
+          },
+          "required": []
+        }
+        ```
+
+-   **restore_backup**: Restore the instance from an existing backup key. DESTRUCTIVE: replaces ALL current data. Requires `confirm: true`.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "key": { "type": "string", "description": "Backup file key from list_backups." },
+            "confirm": { "type": "boolean", "description": "Must be explicitly true." }
+          },
+          "required": ["key", "confirm"]
+        }
+        ```
+
+### Settings Management
+
+> **Note:** The Settings API requires superuser authentication. Secrets (SMTP password, S3 keys, OAuth2 client secrets) are returned by the server masked as `"******"`; `update_settings` needs the REAL new values for those fields (PATCH semantics — omitted fields keep their stored values).
+
+-   **get_settings**: Fetch all app settings (sections: `meta`, `logs`, `smtp`, `batch`, `backups`, `s3`, `rateLimits`, ...).
+    -   *Input Schema*: `{ "type": "object", "properties": {}, "additionalProperties": false }`
+
+-   **update_settings**: Bulk-update settings with a partial payload.
+    -   *Input Schema*:
+        ```json
+        {
+          "type": "object",
+          "properties": {
+            "data": { "type": "object", "description": "Partial settings payload, e.g. { \"logs\": { \"maxDays\": 14 } }.", "additionalProperties": true }
+          },
+          "required": ["data"]
+        }
+        ```
+
+### SQL Execution (run_sql — security gated)
+
+`run_sql` executes **arbitrary raw SQL** against the PocketBase instance (server >= v0.39, endpoint `POST /api/sql`) **with superuser privileges**. Because an MCP server is typically driven by an LLM — and LLMs can be steered by prompt injection in the data they read — this tool is a much bigger blast radius than the record-level tools and is therefore:
+
+-   **DISABLED BY DEFAULT.** The tool is always listed (stable contract), but every call returns an explanatory error unless the MCP *process* was started with `POCKETBASE_ENABLE_SQL=true`. No network request is made when the gate is closed.
+-   **All-or-nothing.** There is no read-only mode: SQL statements that modify or drop data (`UPDATE`, `DELETE`, `DROP`, PRAGMAs, ...) are just as executable as `SELECT`. Only enable the gate on instances you fully trust and, ideally, on a copy of your data (PocketBase is a single file — back it up first with `create_backup`).
+-   **Auditable.** SQL calls land in the PocketBase request logs (`POST /api/sql`), so `list_logs` can reconstruct what ran.
+
+Enable explicitly, only if you accept the risks:
+
+```bash
+POCKETBASE_ENABLE_SQL=true node build/index.js
+```
+
+Typical (read-only) usage once enabled:
+
+```json
+{ "name": "run_sql", "arguments": { "query": "SELECT COUNT(*) AS n FROM posts" } }
+```
 
 ### Migration Management
 

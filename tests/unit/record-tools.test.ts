@@ -129,9 +129,39 @@ describe('record-tools', () => {
     });
   });
 
+  describe('delete_record (PR-3 — reimplementação limpa do PR #8)', () => {
+    it('chama delete(id) e reporta { deleted, collection, id }', async () => {
+      pb.collection('posts').delete.mockResolvedValue(true);
+      const result = await handleRecordToolCall(
+        'delete_record', { collection: 'posts', id: sampleRecord.id }, pb as any
+      );
+      expect(pb.collection('posts').delete).toHaveBeenCalledWith(sampleRecord.id);
+      expect(JSON.parse(textOf(result))).toEqual({
+        deleted: true, collection: 'posts', id: sampleRecord.id,
+      });
+    });
+
+    it('collection ou id ausentes → InvalidParams e nenhuma chamada de rede', async () => {
+      await expect(
+        handleRecordToolCall('delete_record', { collection: 'posts' } as any, pb as any)
+      ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+      await expect(
+        handleRecordToolCall('delete_record', { id: 'x' } as any, pb as any)
+      ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+      expect(pb.collection('posts').delete).not.toHaveBeenCalled();
+    });
+
+    it('404 do server propaga como ClientResponseError', async () => {
+      pb.collection('posts').delete.mockRejectedValue(notFoundError());
+      await expect(
+        handleRecordToolCall('delete_record', { collection: 'posts', id: 'nope' }, pb as any)
+      ).rejects.toBeInstanceOf(ClientResponseError);
+    });
+  });
+
   it('tool desconhecida do grupo → Error genérico', async () => {
     await expect(
-      handleRecordToolCall('delete_record', {}, pb as any)
+      handleRecordToolCall('purge_record', {}, pb as any)
     ).rejects.toThrow(/Unknown record tool/);
   });
 });

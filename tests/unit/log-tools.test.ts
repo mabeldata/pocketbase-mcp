@@ -118,9 +118,26 @@ describe('log-tools', () => {
     });
   });
 
+  describe('truncate_logs (PR-3 — DELETE /api/logs, server >= v0.40)', () => {
+    it('sem confirm=true → InvalidParams e nenhuma chamada de rede', async () => {
+      await expect(handleLogToolCall('truncate_logs', {}, pb as any))
+        .rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+      await expect(handleLogToolCall('truncate_logs', { confirm: false }, pb as any))
+        .rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+      expect(pb.logs.truncate).not.toHaveBeenCalled();
+    });
+
+    it('confirm=true chama pb.logs.truncate() e reporta { truncated: true }', async () => {
+      pb.logs.truncate.mockResolvedValue(true);
+      const result = await handleLogToolCall('truncate_logs', { confirm: true }, pb as any);
+      expect(pb.logs.truncate).toHaveBeenCalled();
+      expect(JSON.parse(textOf(result)).truncated).toBe(true);
+    });
+  });
+
   it('tool desconhecida do grupo → Error genérico', async () => {
     await expect(
-      handleLogToolCall('truncate_logs', {}, pb as any)
+      handleLogToolCall('delete_all_logs', {}, pb as any)
     ).rejects.toThrow(/Unknown log tool/);
   });
 });

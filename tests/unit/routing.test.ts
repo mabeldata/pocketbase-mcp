@@ -18,7 +18,7 @@ import { describeBugs, itBug, KNOWN_BUGS } from '../fixtures/known-bugs.js';
 
 const ALL_TOOL_NAMES = [
   // records
-  'fetch_record', 'list_records', 'create_record', 'update_record',
+  'fetch_record', 'list_records', 'create_record', 'update_record', 'delete_record',
   // collections
   'get_collection_schema', 'list_collections',
   // files
@@ -28,13 +28,18 @@ const ALL_TOOL_NAMES = [
   'add_field_migration', 'list_migrations', 'apply_migration', 'revert_migration',
   'apply_all_migrations', 'revert_to_migration',
   // logs
-  'list_logs', 'get_log', 'get_logs_stats',
+  'list_logs', 'get_log', 'get_logs_stats', 'truncate_logs',
   // crons
   'list_cron_jobs', 'run_cron_job',
+  // PR-3: sql (gated), backups, settings, meta/batch
+  'run_sql',
+  'list_backups', 'create_backup', 'restore_backup',
+  'get_settings', 'update_settings',
+  'get_collection_scaffolds', 'dry_run_view_query', 'batch_records',
 ];
 
 describe('registerTools', () => {
-  it('registra todas as 22 tools declaradas (4 record + 2 collection + 2 file + 9 migration + 3 log + 2 cron)', () => {
+  it('registra todas as 33 tools declaradas (5 record + 2 collection + 2 file + 9 migration + 4 log + 2 cron + 1 sql + 3 backup + 2 settings + 3 admin)', () => {
     // O snapshot de contrato (tests/contract/tools-list.snapshot.test.ts) é a
     // fonte da verdade para a forma exata. Aqui garantimos que TODO nome
     // roteável está registrado e não há duplicatas.
@@ -121,6 +126,19 @@ describe('handleToolCall — routing', () => {
     ['get_logs_stats', {}],
     ['list_cron_jobs', {}],
     ['run_cron_job', { jobId: 'j1' }],
+    // PR-3: novas tools — o ponto é o routing (qualquer resultado que não
+    // seja MethodNotFound prova que rotearam para o handler certo).
+    ['delete_record', { collection: 'posts', id: 'x' }],
+    ['truncate_logs', { confirm: true }],
+    ['run_sql', { query: 'SELECT 1' }],
+    ['list_backups', {}],
+    ['create_backup', {}],
+    ['restore_backup', { key: 'a.zip', confirm: true }],
+    ['get_settings', {}],
+    ['update_settings', { data: { logs: { maxDays: 7 } } }],
+    ['get_collection_scaffolds', {}],
+    ['dry_run_view_query', { query: 'SELECT id FROM posts' }],
+    ['batch_records', { requests: [{ collection: 'posts', action: 'create', data: {} }] }],
   ];
 
   it.each(ROUTED_TODAY)('%s não cai em MethodNotFound', async (name, args) => {
@@ -130,15 +148,31 @@ describe('handleToolCall — routing', () => {
     pb.collection('posts').getList.mockResolvedValue({ items: [] });
     pb.collection('posts').create.mockResolvedValue(sampleRecord);
     pb.collection('posts').update.mockResolvedValue(sampleRecord);
+    pb.collection('posts').delete.mockResolvedValue(true);
     pb.collections.getOne.mockResolvedValue(sampleCollectionV40);
     pb.collections.getFullList.mockResolvedValue([]);
+    pb.collections.getScaffolds.mockResolvedValue([]);
+    pb.collections.dryRunViewQuery.mockResolvedValue({ columns: [] });
     pb.files.getUrl.mockReturnValue('http://x/f');
     pb.files.getURL.mockReturnValue('http://x/f');
     pb.logs.getList.mockResolvedValue({ items: [] });
     pb.logs.getOne.mockResolvedValue({ id: 'l1' });
     pb.logs.getStats.mockResolvedValue([]);
+    pb.logs.truncate.mockResolvedValue(true);
     pb.crons.getFullList.mockResolvedValue([]);
     pb.crons.run.mockResolvedValue(true);
+    pb.sql.run.mockResolvedValue({ rows: [], columns: [] });
+    pb.backups.getFullList.mockResolvedValue([]);
+    pb.backups.create.mockResolvedValue(true);
+    pb.backups.restore.mockResolvedValue(true);
+    pb.settings.getAll.mockResolvedValue({});
+    pb.settings.update.mockResolvedValue({});
+    pb.createBatch.mockReturnValue({
+      collection: () => ({
+        create: () => {}, update: () => {}, upsert: () => {}, delete: () => {},
+      }),
+      send: async () => [{ status: 200, body: {} }],
+    });
 
     let methodNotFound = false;
     try {

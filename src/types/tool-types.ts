@@ -99,3 +99,65 @@ export interface RunCronJobArgs {
   jobId: string;
 }
 
+// --- PR-3 additive tool argument types (PocketBase v0.37–v0.40 endpoints) ---
+
+// Logs (truncate — v0.40.0)
+export interface TruncateLogsArgs {
+  confirm: boolean;
+}
+
+// SQL console (v0.39.0)
+export interface RunSqlArgs {
+  query: string;
+}
+
+// Collection meta (v0.37+)
+export interface GetCollectionScaffoldsArgs {
+  [option: string]: any; // SDK CommonOptions passthrough (e.g. fields)
+}
+
+export interface DryRunViewQueryArgs {
+  query: string;
+}
+
+// Backups
+export interface ListBackupsArgs {
+  [option: string]: any; // SDK CommonOptions passthrough (e.g. fields)
+}
+
+export interface CreateBackupArgs {
+  name?: string;
+}
+
+export interface RestoreBackupArgs {
+  key: string;
+  confirm: boolean;
+}
+
+// Settings
+export interface GetSettingsArgs {
+  [option: string]: any; // SDK CommonOptions passthrough (e.g. fields)
+}
+
+export interface UpdateSettingsArgs {
+  data: Record<string, any>;
+}
+
+// Batch records (transactional /api/batch)
+export interface BatchRecordRequest {
+  collection: string;
+  action: 'create' | 'update' | 'upsert' | 'delete';
+  id?: string;
+  data?: Record<string, any>;
+}
+
+export interface BatchRecordsArgs {
+  requests: BatchRecordRequest[];
+}
+
+// Record delete
+export interface DeleteRecordArgs {
+  collection: string;
+  id: string;
+}
+

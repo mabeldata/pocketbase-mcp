@@ -105,9 +105,9 @@ describe('handshake MCP (Client ↔ PocketBaseServer via InMemoryTransport)', ()
     expect(client.getServerCapabilities()?.tools).toBeDefined();
   });
 
-  it('listTools devolve as 22 tools com inputSchema válido', async () => {
+  it('listTools devolve as 33 tools com inputSchema válido', async () => {
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(22);
+    expect(tools).toHaveLength(33);
     for (const t of tools) {
       expect(typeof t.name).toBe('string');
       expect(t.inputSchema).toMatchObject({ type: 'object' });
@@ -116,6 +116,11 @@ describe('handshake MCP (Client ↔ PocketBaseServer via InMemoryTransport)', ()
     expect(names).toContain('list_collections');
     expect(names).toContain('fetch_record');
     expect(names).toContain('run_cron_job');
+    // PR-3: as tools aditivas precisam aparecer no handshake real
+    expect(names).toContain('delete_record');
+    expect(names).toContain('truncate_logs');
+    expect(names).toContain('run_sql');
+    expect(names).toContain('batch_records');
   });
 
   it('callTool list_collections retorna payload do mock (sem isError)', async () => {

@@ -9,7 +9,7 @@
  *
  * Usage: node scripts/smoke.mjs [--contract-only]
  */
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -41,12 +41,14 @@ function check(name, ok, detail = '') {
 // --- expected MCP contract: all tools registered by the server ---
 const EXPECTED_TOOLS = [
   'add_field_migration', 'apply_all_migrations', 'apply_migration',
-  'create_collection_migration', 'create_migration', 'create_record',
-  'download_file', 'fetch_record', 'get_collection_schema', 'get_log',
-  'get_logs_stats', 'list_collections', 'list_cron_jobs', 'list_logs',
-  'list_migrations', 'list_records', 'revert_migration',
-  'revert_to_migration', 'run_cron_job', 'set_migrations_directory',
-  'update_record', 'upload_file',
+  'batch_records', 'create_backup', 'create_collection_migration',
+  'create_migration', 'create_record', 'delete_record', 'download_file',
+  'dry_run_view_query', 'fetch_record', 'get_collection_scaffolds',
+  'get_collection_schema', 'get_log', 'get_logs_stats', 'get_settings',
+  'list_backups', 'list_collections', 'list_cron_jobs', 'list_logs',
+  'list_migrations', 'list_records', 'restore_backup', 'revert_migration',
+  'revert_to_migration', 'run_cron_job', 'run_sql', 'set_migrations_directory',
+  'truncate_logs', 'update_record', 'update_settings', 'upload_file',
 ].sort();
 
 // ---------------------------------------------------------------------------
@@ -168,7 +170,7 @@ async function contractChecks(envToken) {
   const list = await mcp.request('tools/list', {});
   check('initialize handshake', !!list?.result || !!list?.id);
   const names = (list.result?.tools || []).map((t) => t.name).sort();
-  check('tools/list contract (22 tools, exact names)', JSON.stringify(names) === JSON.stringify(EXPECTED_TOOLS),
+  check('tools/list contract (33 tools, exact names)', JSON.stringify(names) === JSON.stringify(EXPECTED_TOOLS),
     names.length === EXPECTED_TOOLS.length ? `order/content diff: ${names.filter(n=>!EXPECTED_TOOLS.includes(n))}/${EXPECTED_TOOLS.filter(n=>!names.includes(n))}` : `got ${names.length}: ${names.join(',')}`);
   check('all tools have inputSchema', (list.result?.tools || []).every((t) => t.inputSchema && typeof t.inputSchema === 'object'));
   // unknown tool must map to MethodNotFound-style error, not crash
@@ -345,6 +347,106 @@ async function integrationChecks(mcp, token) {
 
   // stderr purity: no deprecation warnings leaked (getUrl)
   check('stderr has no pb.files.getUrl deprecation warning', !mcp.stderr().includes('Please replace pb.files.getUrl'), mcp.stderr().slice(0, 200));
+
+  // --- PR-3 additive tools ---------------------------------------------
+  // run_sql gate: default server (no POCKETBASE_ENABLE_SQL) must refuse
+  // without touching the network.
+  const sqlOff = await mcp.callTool('run_sql', { query: 'SELECT 1' });
+  check('run_sql disabled by default (gate)', sqlOff.result?.isError === true && toolText(sqlOff).includes('POCKETBASE_ENABLE_SQL'), toolText(sqlOff).slice(0, 200));
+
+  // delete_record roundtrip
+  const delRec = JSON.parse(toolText(await mcp.callTool('create_record', { collection: POSTS, data: { content: 'to delete' } })));
+  const del = await mcp.callTool('delete_record', { collection: POSTS, id: delRec.id });
+  const delObj = safeJson(toolText(del));
+  check('delete_record removes the record', delObj?.deleted === true && delObj?.id === delRec.id, toolText(del).slice(0, 200));
+  const delGone = await mcp.callTool('fetch_record', { collection: POSTS, id: delRec.id });
+  check('fetch_record after delete -> isError 404', delGone.result?.isError === true && toolText(delGone).includes('404'), toolText(delGone).slice(0, 200));
+
+  // batch_records: needs settings.batch.enabled on server >= v0.39 (default off)
+  const bRec = JSON.parse(toolText(await mcp.callTool('create_record', { collection: POSTS, data: { content: 'batchable' } })));
+  const sForBatch = safeJson(toolText(await mcp.callTool('get_settings', {})));
+  await mcp.callTool('update_settings', { data: { batch: { ...sForBatch.batch, enabled: true } } });
+  const batch = await mcp.callTool('batch_records', {
+    requests: [
+      { collection: POSTS, action: 'create', data: { content: 'b1' } },
+      { collection: POSTS, action: 'create', data: { content: 'b2' } },
+      { collection: POSTS, action: 'update', id: bRec.id, data: { content: 'batched' } },
+    ],
+  });
+  const batchObj = safeJson(toolText(batch));
+  check('batch_records executes 3 ops transactionally',
+    batchObj?.executed === 3 && batchObj?.results?.every((r) => r.status >= 200 && r.status < 300),
+    toolText(batch).slice(0, 240));
+  const batchVerify = JSON.parse(toolText(await mcp.callTool('fetch_record', { collection: POSTS, id: bRec.id })));
+  check('batch update persisted', batchVerify?.content === 'batched', JSON.stringify(batchVerify).slice(0, 160));
+
+  // destructive guard: restore without confirm must be refused before any request
+  const noConfirm = await mcp.callTool('restore_backup', { key: 'x.zip', confirm: false });
+  check('restore_backup without confirm -> InvalidParams',
+    noConfirm.result?.isError === true && toolText(noConfirm).includes('InvalidParams'), toolText(noConfirm).slice(0, 200));
+
+  // backups list + settings
+  const backups = await mcp.callTool('list_backups', {});
+  check('list_backups returns array', Array.isArray(safeJson(toolText(backups))), toolText(backups).slice(0, 160));
+  const settings = await mcp.callTool('get_settings', {});
+  const settingsObj = safeJson(toolText(settings));
+  check('get_settings returns meta/logs sections', !!settingsObj?.meta && !!settingsObj?.logs, toolText(settings).slice(0, 160));
+
+  // scaffolds + dry-run (server >= v0.37; matrix runs v0.39/v0.40 so always ok here).
+  // Real shapes (probed v0.39.11 + v0.40.3): scaffolds = object keyed by type;
+  // dry-run = { fields: [...], sample: [...] }.
+  const scaffoldsObj = safeJson(toolText(await mcp.callTool('get_collection_scaffolds', {})));
+  check('get_collection_scaffolds returns type-keyed templates',
+    !!scaffoldsObj?.base && !!scaffoldsObj?.auth, JSON.stringify(scaffoldsObj)?.slice(0, 160));
+  const dryRun = await mcp.callTool('dry_run_view_query', { query: `SELECT id, content FROM ${POSTS}` });
+  const dryRunObj = safeJson(toolText(dryRun));
+  check('dry_run_view_query validates a real view query', !dryRun.result?.isError && Array.isArray(dryRunObj?.fields), toolText(dryRun).slice(0, 200));
+
+  // second server instance WITH the SQL gate open (v0.39+ endpoint)
+  const mcpSql = startMcpServer({ POCKETBASE_API_URL: PB_URL, POCKETBASE_ADMIN_TOKEN: token, POCKETBASE_ENABLE_SQL: 'true' });
+  mcpServers.push(mcpSql);
+  await mcpSql.init();
+  const sqlOn = await mcpSql.callTool('run_sql', { query: `SELECT COUNT(*) AS n FROM ${POSTS}` });
+  const sqlObj = safeJson(toolText(sqlOn));
+  check('run_sql with POCKETBASE_ENABLE_SQL=true executes SELECT',
+    !sqlOn.result?.isError && Array.isArray(sqlObj?.rows) && Number(sqlObj.rows[0]?.[0]) >= 0,
+    toolText(sqlOn).slice(0, 240));
+
+  // truncate_logs: endpoint exists only on server >= v0.40 — probe the version.
+  const pbVer = execFileSync(POCKETBASE_BIN, ['--version'], { encoding: 'utf-8' });
+  const minor = Number((pbVer.match(/0\.(\d+)/) || [])[1] ?? 0);
+  if (minor >= 40) {
+    const trunc = await mcp.callTool('truncate_logs', { confirm: true });
+    check('truncate_logs (v0.40) truncates all logs',
+      trunc.result?.isError !== true && safeJson(toolText(trunc))?.truncated === true, toolText(trunc).slice(0, 160));
+  } else {
+    const truncNoConf = await mcp.callTool('truncate_logs', { confirm: false });
+    check('truncate_logs without confirm -> InvalidParams',
+      truncNoConf.result?.isError === true && toolText(truncNoConf).includes('InvalidParams'), toolText(truncNoConf).slice(0, 160));
+  }
+
+  // restore_backup happy path — LAST check: it replaces the instance db, so
+  // nothing after it may depend on data created during this run.
+  const bk = await mcp.callTool('create_backup', { name: `smoke_rest_${RUN}.zip` });
+  check('create_backup queued', !bk.result?.isError && safeJson(toolText(bk))?.queued === true, toolText(bk).slice(0, 160));
+  let restoreKey = null;
+  for (let attempt = 0; attempt < 30 && !restoreKey; attempt++) {
+    const listed = safeJson(toolText(await mcp.callTool('list_backups', {}))) || [];
+    restoreKey = (listed.find((b) => b.key.includes(`smoke_rest_${RUN}`)) || {}).key || null;
+    if (!restoreKey) await new Promise((r) => setTimeout(r, 1000));
+  }
+  check('created backup visible in list_backups', !!restoreKey, String(restoreKey));
+  if (restoreKey) {
+    const restored = await mcp.callTool('restore_backup', { key: restoreKey, confirm: true });
+    check('restore_backup (confirmed) executes',
+      !restored.result?.isError && safeJson(toolText(restored))?.restored === true, toolText(restored).slice(0, 160));
+    const colsAfter = safeJson(toolText(await mcp.callTool('list_collections', {}))) || [];
+    check('instance healthy after restore (fixture collection present)',
+      Array.isArray(colsAfter) && colsAfter.some((c) => c.name === POSTS), `count=${colsAfter.length}`);
+  } else {
+    check('restore_backup (confirmed) executes', false, 'backup never appeared');
+    check('instance healthy after restore (fixture collection present)', false, 'skipped — no backup key');
+  }
 }
 
 async function main() {
