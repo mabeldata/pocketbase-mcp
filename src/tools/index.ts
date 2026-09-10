@@ -39,8 +39,10 @@ export async function handleToolCall(params: CallToolRequest['params'], pb: Pock
     // }
 
     // Route based on tool name prefix or category (adjust logic as needed)
-    // Ensure args is treated as 'any' or validated properly before passing
-    const toolArgs = args as any;
+    // Ensure args is treated as 'any' or validated properly before passing.
+    // Normalize undefined -> {} once at the router so handlers can safely
+    // destructure (ROB-1); handlers keep their own guards as defense in depth.
+    const toolArgs = (args ?? {}) as any;
 
     if (name === 'fetch_record' || name === 'list_records' || name === 'create_record' || name === 'update_record') {
         return handleRecordToolCall(name, toolArgs, pb);

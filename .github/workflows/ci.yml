@@ -27,7 +27,14 @@ jobs:
       - name: Build (tsc)
         run: npm run build
 
-      - name: Contract smoke (tools/list over stdio, no PocketBase needed)
+      - name: Typecheck (src + tests)
+        run: npm run typecheck
+
+      # Hermetic suite (unit + contract): runs BEFORE any PocketBase binary is
+      # downloaded; no network dependency. Contract layer includes the MCP
+      # tools/list snapshot (back-compat lock) and a real stdio spawn of
+      # build/index.js.
+      - name: Unit + contract tests (vitest, hermetic)
         run: npm test
 
       - name: Download PocketBase ${{ matrix.pocketbase-version }}
@@ -37,5 +44,14 @@ jobs:
           chmod +x /tmp/pb-bin/pocketbase
           /tmp/pb-bin/pocketbase --version
 
-      - name: Integration smoke against PocketBase ${{ matrix.pocketbase-version }}
+      # Full vitest integration layer against the REAL binary: ephemeral
+      # server instance (OS-assigned port, unique superuser identity,
+      # isolated --migrationsDir) + generated migrations validated with the
+      # official `migrate up/down` runner.
+      - name: Integration tests (vitest) against PocketBase ${{ matrix.pocketbase-version }}
         run: POCKETBASE_BIN=/tmp/pb-bin/pocketbase npm run test:integration
+
+      # End-to-end MCP smoke (scripts/smoke.mjs): drives the built server over
+      # stdio against a real PocketBase instance (37 checks).
+      - name: Integration smoke (scripts/smoke.mjs) against PocketBase ${{ matrix.pocketbase-version }}
+        run: POCKETBASE_BIN=/tmp/pb-bin/pocketbase npm run smoke

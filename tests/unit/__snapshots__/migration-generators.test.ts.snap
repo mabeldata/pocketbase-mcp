@@ -5,12 +5,12 @@ exports[`generateAddFieldQuery / generateRemoveFieldQuery > add field: snapshot 
   const collection = app.findCollectionByNameOrId("posts");
 
   // Add subtitle field
-  collection.fields.add({
+  collection.fields.add(new TextField({
     id: "text_sub",
     name: "subtitle",
     type: "text",
     max: 100
-  });
+  }));
 
   return app.save(collection);
 "

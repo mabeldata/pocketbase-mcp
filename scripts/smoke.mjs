@@ -354,12 +354,18 @@ async function main() {
     // --- start ephemeral PocketBase v0.40 instance ---
     const pbDataDir = mkdtempSync(path.join(tmpdir(), 'pb-smoke-'));
     tmpDirs.push(pbDataDir);
+    // --migrationsDir SEMPRE explícito: o default (<pai do dataDir>/pb_migrations)
+    // aponta para /tmp/pb_migrations quando o dataDir é um mkdtemp em /tmp,
+    // causando cross-contamination real com migrações de outras execuções
+    // (armadilha documentada em tests/TESTS.md).
+    const pbMigrationsDir = mkdtempSync(path.join(tmpdir(), 'pb-smoke-migrations-'));
+    tmpDirs.push(pbMigrationsDir);
     const email = 'smoke@test.local';
     const password = 'smoke12345678';
-    const upsert = spawn(POCKETBASE_BIN, ['superuser', 'upsert', email, password, `--dir=${pbDataDir}`], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const upsert = spawn(POCKETBASE_BIN, ['superuser', 'upsert', email, password, `--dir=${pbDataDir}`, `--migrationsDir=${pbMigrationsDir}`], { stdio: ['ignore', 'pipe', 'pipe'] });
     await new Promise((res, rej) => { upsert.on('exit', (c) => c === 0 ? res() : rej(new Error(`superuser upsert exit ${c}`))); upsert.on('error', rej); });
 
-    pbProc = spawn(POCKETBASE_BIN, ['serve', `--http=127.0.0.1:${PB_PORT}`, `--dir=${pbDataDir}`], { stdio: ['ignore', 'pipe', 'pipe'] });
+    pbProc = spawn(POCKETBASE_BIN, ['serve', `--http=127.0.0.1:${PB_PORT}`, `--dir=${pbDataDir}`, `--migrationsDir=${pbMigrationsDir}`], { stdio: ['ignore', 'pipe', 'pipe'] });
     pbProc.stdout.on('data', () => {});
     pbProc.stderr.on('data', () => {});
     await waitFor(`${PB_URL}/api/health`);

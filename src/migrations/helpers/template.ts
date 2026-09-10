@@ -151,6 +151,41 @@ export function generateDeleteCollectionQuery(collectionNameOrId: string): strin
 }
 
 /**
+ * Maps a PocketBase field `type` to its JSVM constructor class name.
+ * The v0.40.x JSVM runner rejects plain objects passed to
+ * `collection.fields.add()` ("could not convert [object Object] to
+ * core.Field"); the generated migrations must build a Field instance.
+ * Class names verified against the runner's types.d.ts (v0.39.11/v0.40.3)
+ * and executed successfully with `migrate up/down` on both binaries.
+ * Generic `Field` is the validated fallback (it discriminates by the
+ * `type` key present in the definition).
+ */
+const FIELD_CLASS_BY_TYPE: Record<string, string> = {
+    text: 'TextField',
+    number: 'NumberField',
+    bool: 'BoolField',
+    email: 'EmailField',
+    url: 'URLField',
+    editor: 'EditorField',
+    password: 'PasswordField',
+    date: 'DateField',
+    autodate: 'AutodateField',
+    select: 'SelectField',
+    file: 'FileField',
+    relation: 'RelationField',
+    json: 'JSONField',
+    geoPoint: 'GeoPointField',
+};
+
+/**
+ * Returns the JSVM constructor name for a field definition.
+ * @param fieldType - The field `type` string (e.g. "text").
+ */
+function fieldClassName(fieldType: string): string {
+    return FIELD_CLASS_BY_TYPE[fieldType] ?? 'Field';
+}
+
+/**
  * Generates the 'up' query string for adding a field to an existing collection.
  *
  * @param collectionNameOrId - The name or ID of the collection to update.
@@ -179,13 +214,18 @@ export function generateAddFieldQuery(collectionNameOrId: string, fieldDefinitio
         .map(([key, value]) => `    ${key}: ${formatValueAsJs(value)}`)
         .join(',\n');
 
+    // BUG-5: the v0.40.x JSVM runner rejects plain objects in fields.add —
+    // emit a typed Field constructor instance instead (validated on v0.39.11
+    // and v0.40.3 with the official `migrate up/down` runner).
+    const fieldClass = fieldClassName(String(fieldDefinition.type));
+
     return `
   const collection = app.findCollectionByNameOrId("${collectionNameOrId}");
 
   // Add ${fieldDefinition.name} field
-  collection.fields.add({
+  collection.fields.add(new ${fieldClass}({
 ${fieldProps}
-  });
+  }));
 
   return app.save(collection);
 `;
