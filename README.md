@@ -52,8 +52,8 @@ npx -y @smithery/cli install @mabeldata/pocketbase-mcp --client claude
 Test suite (vitest, 3 layers — full guide in [tests/TESTS.md](tests/TESTS.md)):
 
 -   `npm test` — unit + contract tests (207: 195 passing + 12 documented known-bug markers; hermetic: no PocketBase instance or network required). The contract layer locks the `tools/list` MCP contract via snapshot (33 tools: the 22 original + 11 additive PR-3 tools, each group snapshotted separately), a real Client↔Server handshake over InMemoryTransport, and a stdio smoke of the built `build/index.js`.
--   `npm run test:integration` — integration tests against a **real** PocketBase binary (58 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner.
--   `npm run test:all` — the full suite (265 tests).
+-   `npm run test:integration` — integration tests against a **real** PocketBase binary (56 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner. The PR-3 suite (`pr3-tools.test.ts`) boots its **own** dedicated instance (admin-scope endpoints — SQL, batch, backups, settings, log clear — must not race siblings on the shared server; see the file header).
+-   `npm run test:all` — the full suite (263 tests).
 -   `npm run typecheck` — tsc over src + tests.
 -   `SKIP_KNOWN_BUG_TESTS=1 npm test` — green baseline where known-bug marker tests are skipped instead of run.
 

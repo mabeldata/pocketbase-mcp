@@ -2,6 +2,20 @@
  * INTEGRAÇÃO — PR-3: tools aditivas v0.37–v0.40 via handleToolCall contra
  * PocketBase REAL (matriz CI: v0.39.11 e v0.40.3).
  *
+ * INSTÂNCIA DEDICADA: este arquivo sobe o SEU próprio PocketBase ephemero
+ * (tests/integration/dedicated-server.ts) em vez de usar o server
+ * compartilhado da suíte. Fato observado (não totalmente elucidado): com o
+ * server compartilhado, a carga do PR-3 (DELETE /api/logs, POST /api/sql,
+ * /api/batch transacional, backups em fila, PATCH /api/settings) deixava o
+ * server inteiro sem responder em CI Node 18.x/20.x (health + reads +
+ * writes todos travando; migrations-rest/files/auth-health estouravam
+ * timeouts em cascata) — reproduzido localmente sob Node 20, nunca sob
+ * Node ≥22, e NUNCA com instância dedicada (padrão do scripts/smoke.mjs,
+ * verde em todas as versões). O mecanismo exato não foi isolado (exclusões
+ * de um único grupo não evitavam o hang — parece ser efeito cumulativo da
+ * carga/sessão sobre o boot compartilhado), então a correção é estrutural:
+ * isolar o boot contém qualquer interferência neste arquivo.
+ *
  * Cobre:
  * - delete_record          (CRUD completo com 404 pós-delete)
  * - truncate_logs          (server >= v0.40; em v0.39 o 404 do endpoint
@@ -9,20 +23,19 @@
  * - run_sql                (gate POCKETBASE_ENABLE_SQL: bloqueado sem env;
  *                           com env, executa SELECT real no v0.39+)
  * - get_collection_scaffolds / dry_run_view_query (v0.37+)
- * - list_backups / create_backup / restore_backup: APENAS travas e leitura
- *                           segura no server compartilhado — o ciclo real
- *                           create→list→restore vive no scripts/smoke.mjs
- *                           (instância dedicada, restore por último), pois
- *                           backup/restore em fila trava writes de arquivos
- *                           irmãos no mesmo boot em disco lento de CI.
- * - get_settings / update_settings (round-trip de meta.appName)
+ * - list_backups / create_backup / restore_backup (incl. o ciclo real
+ *                           create→list→restore→sanity — agora seguro: o
+ *                           server é deste arquivo e o restore roda no fim)
+ * - get_settings / update_settings (round-trip de meta.appName; habilita
+ *                           batch no server antes dos cenários de lote)
  * - batch_records          (create+update+delete transacional + rollback)
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import PocketBase from 'pocketbase';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { handleToolCall } from '../../src/tools/index.js';
-import { integrationSkipReason, createIntegrationClient, integrationVersion, integrationUrl } from './helpers.js';
+import { integrationSkipReason } from './helpers.js';
+import { startDedicatedPocketBase, DedicatedServer } from './dedicated-server.js';
 
 const skipReason = integrationSkipReason();
 const describeI = skipReason ? describe.skip : describe;
@@ -37,34 +50,35 @@ async function call(name: string, args: Record<string, unknown>, pb: PocketBase)
   return handleToolCall({ name, arguments: args } as any, pb);
 }
 
-/** true se a versão do server é >= min (ex.: gte(minor 40)). */
-function serverAtLeast(minMinor: number): boolean {
-  const m = integrationVersion().match(/v?0\.(\d+)/);
-  return m ? Number(m[1]) >= minMinor : true; // versão desconhecida: assume latest
-}
-
-describeI('integração — PR-3 tools aditivas via MCP', () => {
+describeI('integração — PR-3 tools aditivas via MCP (instância dedicada)', () => {
+  let srv: DedicatedServer;
   let pb: PocketBase;
 
+  /** true se a versão do server é >= min (ex.: gte(minor 40)). */
+  function serverAtLeast(minMinor: number): boolean {
+    const m = srv.version.match(/v?0\.(\d+)/);
+    return m ? Number(m[1]) >= minMinor : true; // versão desconhecida: assume latest
+  }
+
   beforeAll(async () => {
-    pb = createIntegrationClient();
-    const existing = await pb.collections.getFullList({ filter: `name="${TEST_COLLECTION}"` });
-    if (existing.length === 0) {
-      await pb.collections.create({
-        name: TEST_COLLECTION,
-        type: 'base',
-        fields: [
-          { name: 'title', type: 'text', required: true },
-          { name: 'status', type: 'text', required: false },
-        ],
-        listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null,
-      });
-    }
-  });
+    const started = await startDedicatedPocketBase();
+    if (!started) throw new Error('binário PocketBase indisponível para a instância dedicada');
+    srv = started;
+    pb = srv.client;
+    await pb.collections.create({
+      name: TEST_COLLECTION,
+      type: 'base',
+      fields: [
+        { name: 'title', type: 'text', required: true },
+        { name: 'status', type: 'text', required: false },
+      ],
+      listRule: null, viewRule: null, createRule: null, updateRule: null, deleteRule: null,
+    });
+  }, 180_000);
 
   afterAll(async () => {
-    await pb.collections.delete(TEST_COLLECTION).catch(() => {});
-  });
+    await srv?.stop();
+  }, 60_000);
 
   // ---------------------------------------------------------------- records
   describe('delete_record', () => {
@@ -104,17 +118,17 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
       ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
 
       // gera pelo menos um request log
-      await fetch(`${integrationUrl()}/api/health`).catch(() => {});
+      await fetch(`${srv.url}/api/health`).catch(() => {});
 
       if (serverAtLeast(40)) {
         const result = await call('truncate_logs', { confirm: true }, pb);
         expect(result.isError).toBeFalsy();
         expect(JSON.parse(toolText(result)).truncated).toBe(true);
       } else {
-        // v0.39: endpoint DELETE /api/logs não existe → erro 404/405 propaga
+        // v0.39: endpoint DELETE /api/logs não existe → erro 404 propaga
         await expect(
           call('truncate_logs', { confirm: true }, pb)
-        ).rejects.toMatchObject({ status: expect.any(Number) });
+        ).rejects.toMatchObject({ status: 404 });
       }
     });
   });
@@ -188,41 +202,6 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
     });
   });
 
-  // --------------------------------------------------------------- backups
-  describe('list_backups / create_backup / restore_backup (travas)', () => {
-    // IMPORTANTE: backups/restore REAIS ficam fora desta suíte. O zip de
-    // pb_data roda ASSÍNCRONO no server e, em disco lento de CI, segura o
-    // lock do SQLite tempo suficiente para travar writes de arquivos-irmãos
-    // no mesmo boot (manifestou como hang de `apply_migration` em
-    // migrations-rest nos jobs 18.x/20.x). O caminho positivo completo
-    // (create → list → restore → sanity) roda no scripts/smoke.mjs, que usa
-    // instância DEDICADA e faz o restore como ÚLTIMO check. Aqui só o que é
-    // seguro no server compartilhado: leitura + validação pré-fila.
-    it('list_backups retorna array (vazio ou não)', async () => {
-      const listed = await call('list_backups', {}, pb);
-      expect(listed.isError).toBeFalsy();
-      expect(Array.isArray(JSON.parse(toolText(listed)))).toBe(true);
-    });
-
-    it('create_backup com nome inválido (sem .zip) → 400 de validação propaga, nada é enfileirado', async () => {
-      await expect(
-        call('create_backup', { name: 'invalid name' }, pb)
-      ).rejects.toMatchObject({ status: 400 });
-    });
-
-    it('restore sem confirm → InvalidParams (trava destrutiva, antes da rede)', async () => {
-      await expect(
-        call('restore_backup', { key: 'qualquer.zip', confirm: false }, pb)
-      ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
-    });
-
-    it('restore de key inexistente → erro do server (400: key inválida/desconhecida) propagado', async () => {
-      await expect(
-        call('restore_backup', { key: 'nao_existe.zip', confirm: true }, pb)
-      ).rejects.toMatchObject({ status: 400 });
-    });
-  });
-
   // -------------------------------------------------------------- settings
   describe('get_settings / update_settings', () => {
     it('get_settings devolve payload com seções meta/logs; update round-trip de appName', async () => {
@@ -255,21 +234,14 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
   // ----------------------------------------------------------------- batch
   describe('batch_records (transacional)', () => {
     // PocketBase >= v0.39 desabilita /api/batch por padrão (settings.batch
-    // .enabled=false → 403 "Batch requests are not allowed"). Habilita no
-    // server efêmero antes dos cenários (restaura no final do describe).
-    let previousBatch: any;
+    // .enabled=false → 403 "Batch requests are not allowed"). Habilita na
+    // instância dedicada antes dos cenários.
     beforeAll(async () => {
       const settings = JSON.parse(toolText(await call('get_settings', {}, pb)));
-      previousBatch = settings.batch;
       const enabled = await call('update_settings', {
         data: { batch: { ...settings.batch, enabled: true } },
       }, pb);
       expect(enabled.isError).toBeFalsy();
-    });
-    afterAll(async () => {
-      if (previousBatch) {
-        await call('update_settings', { data: { batch: previousBatch } }, pb).catch(() => {});
-      }
     });
 
     it('create+update em um lote; resultados na ordem', async () => {
@@ -318,6 +290,49 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
     it('requests vazio → InvalidParams', async () => {
       await expect(call('batch_records', { requests: [] }, pb))
         .rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+    });
+  });
+
+  // --------------------------------------------------------------- backups
+  // POR ÚLTIMO: restore_backup troca o data.db da instância dedicada (o
+  // server é só deste arquivo — irmãos não são afetados).
+  describe('list_backups / create_backup / restore_backup (ciclo real)', () => {
+    it('create_backup enfileira, list_backups mostra, restore confirma e a instância segue saudável', async () => {
+      const created = await call('create_backup', { name: 'it_pr3_cycle.zip' }, pb);
+      expect(created.isError).toBeFalsy();
+      expect(JSON.parse(toolText(created)).queued).toBe(true);
+
+      let key: string | null = null;
+      const start = Date.now();
+      while (Date.now() - start < 30_000 && !key) {
+        const listed = JSON.parse(toolText(await call('list_backups', {}, pb)));
+        key = listed.find((b: any) => b.key === 'it_pr3_cycle.zip')?.key || null;
+        if (!key) await new Promise(r => setTimeout(r, 1000));
+      }
+      expect(key, 'backup não apareceu em list_backups').toBe('it_pr3_cycle.zip');
+
+      // travas de confirmação
+      await expect(
+        call('restore_backup', { key: key!, confirm: false }, pb)
+      ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
+      await expect(
+        call('restore_backup', { key: 'nao_existe.zip', confirm: true }, pb)
+      ).rejects.toMatchObject({ status: 400 });
+
+      // restore real
+      const restored = await call('restore_backup', { key: key!, confirm: true }, pb);
+      expect(restored.isError).toBeFalsy();
+      expect(JSON.parse(toolText(restored))).toMatchObject({ restored: true, key: key });
+
+      // sanity pós-restore no server dedicado: coleção de teste ainda existe
+      const cols = JSON.parse(toolText(await call('list_collections', {}, pb)));
+      expect(cols.map((c: any) => c.name)).toContain(TEST_COLLECTION);
+    }, 120_000);
+
+    it('create_backup com nome inválido (sem .zip) → 400 de validação, nada enfileira', async () => {
+      await expect(
+        call('create_backup', { name: 'invalid name' }, pb)
+      ).rejects.toMatchObject({ status: 400 });
     });
   });
 });
