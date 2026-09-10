@@ -72,6 +72,17 @@ t_83cd2329):
 | ERR-1 | src/server/error-handler.ts | ClientResponseError deveria expor status + response.data por campo |
 | ID-1 | src/migrations | ids não validados contra regras de caracteres do v0.33 |
 
+## Arquivos de integração (o que cada um cobre)
+
+| Arquivo | Cobre |
+|---|---|
+| `auth-health.test.ts` | token superuser aceito; token inválido → 401 mapeado; `pb.health.check()` retorna body |
+| `records-collections.test.ts` | CRUD via tools; filter/sort/expand reais; json>1MB (v0.28); id inválido (v0.33); geoPoint (v0.27); clamp perPage=1000; schema fields/indexes v0.40; system collections |
+| `files.test.ts` | upload multipart real; URL de download responde 200 com conteúdo; Content-Disposition (v0.40); campo vazio → InvalidParams |
+| `logs-crons.test.ts` | logs reais (flush assíncrono, shape `data.*`), filtros válidos/inválidos, stats `[{date,total}]`, regressão BUG-2 (sort) contra server real; crons `__pb*` do v0.40 + run |
+| `migrations.test.ts` | arquivos gerados pelas tools validados no runner oficial `migrate up/down` (CLI real); controle positivo `new TextField`; BUG-5 (v0.39 aceita / v0.40 rejeita objeto puro) |
+| `migrations-rest.test.ts` | ciclo end-to-end create→apply→add_field→apply→CRUD→revert via tools REST (redesign D1); **skip automático** enquanto o src não tem `parseMigrationMeta` |
+
 ## Comportamentos reais do servidor validados (fixtures calibradas)
 
 - **perPage**: server CLAMPA em 1000 (perPage=2000 → retorna 1000, sem erro 400).
