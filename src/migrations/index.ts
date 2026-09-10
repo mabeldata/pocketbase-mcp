@@ -56,6 +56,8 @@ export async function createCollectionMigration(collectionDefinition: Record<str
      if (!collectionId || typeof collectionId !== 'string') {
         throw new Error("Collection definition must have an 'id' property.");
     }
+    // PocketBase >= v0.33 rejects ids with ./\|"'`<>:?*%$ and Windows reserved names
+    helpers.validateCollectionId(collectionId);
 
 
     const desc = description || `create_${collectionName}_collection`;
@@ -70,7 +72,20 @@ export async function createCollectionMigration(collectionDefinition: Record<str
     const upQuery = helpers.generateCreateCollectionQuery(collectionDefinition);
     const downQuery = helpers.generateDeleteCollectionQuery(collectionId); // Use ID for down query
 
-    const content = helpers.generateMigrationTemplate(upQuery, downQuery);
+    // MCP metadata allows apply/revert through the REST API.
+    // The marker is placed after the `/// <reference>` directive so the file
+    // remains a valid JSVM migration for `./pocketbase migrate up`.
+    const meta = helpers.generateMigrationMeta({
+        ops: {
+            up: [{ action: 'createCollection', collection: collectionDefinition }],
+            down: [{ action: 'deleteCollection', collectionIdOrName: collectionId }],
+        },
+    });
+
+    const content = helpers.generateMigrationTemplate(upQuery, downQuery).replace(
+        /^(.*\n)/,
+        `$1${meta}\n`
+    );
 
     return helpers.createMigrationFile(filename, content);
 }
@@ -107,7 +122,20 @@ export async function createAddFieldMigration(
     const upQuery = helpers.generateAddFieldQuery(collectionNameOrId, fieldDefinition);
     const downQuery = helpers.generateRemoveFieldQuery(collectionNameOrId, fieldName);
 
-    const content = helpers.generateMigrationTemplate(upQuery, downQuery);
+    // MCP metadata allows apply/revert through the REST API.
+    // The marker is placed after the `/// <reference>` directive so the file
+    // remains a valid JSVM migration for `./pocketbase migrate up`.
+    const meta = helpers.generateMigrationMeta({
+        ops: {
+            up: [{ action: 'addField', collectionIdOrName: collectionNameOrId, field: fieldDefinition }],
+            down: [{ action: 'removeField', collectionIdOrName: collectionNameOrId, fieldName }],
+        },
+    });
+
+    const content = helpers.generateMigrationTemplate(upQuery, downQuery).replace(
+        /^(.*\n)/,
+        `$1${meta}\n`
+    );
 
     return helpers.createMigrationFile(filename, content);
 }
@@ -126,6 +154,9 @@ export async function listMigrations(): Promise<string[]> {
  * Applies a specific migration
  * @param migrationFile Name of the migration file to apply
  * @param pb PocketBase instance
+ * @param customPath Optional custom path for migrations. When omitted, the
+ *                   directory previously configured via setMigrationsDirectory
+ *                   is used (NOT reset to the default).
  * @returns Result message
  */
 export async function applyMigration(
@@ -133,10 +164,9 @@ export async function applyMigration(
     pb: PocketBase,
     customPath?: string
 ): Promise<string> {
-    // If customPath is provided, set the migrations directory
-    const migrationsDir = customPath 
+    const migrationsDir = customPath
         ? helpers.setMigrationsDirectory(customPath)
-        : helpers.setMigrationsDirectory(); // Use current directory
+        : helpers.getMigrationsDirectory(); // Keep the currently configured directory
     return execution.applyMigration(migrationFile, pb, migrationsDir);
 }
 
@@ -152,10 +182,9 @@ export async function revertMigration(
     pb: PocketBase,
     customPath?: string
 ): Promise<string> {
-    // If customPath is provided, set the migrations directory
-    const migrationsDir = customPath 
+    const migrationsDir = customPath
         ? helpers.setMigrationsDirectory(customPath)
-        : helpers.setMigrationsDirectory(); // Use current directory
+        : helpers.getMigrationsDirectory(); // Keep the currently configured directory
     return execution.revertMigration(migrationFile, pb, migrationsDir);
 }
 
@@ -171,10 +200,9 @@ export async function applyAllMigrations(
     appliedMigrations: string[] = [],
     customPath?: string
 ): Promise<string[]> {
-    // If customPath is provided, set the migrations directory
-    const migrationsDir = customPath 
+    const migrationsDir = customPath
         ? helpers.setMigrationsDirectory(customPath)
-        : helpers.setMigrationsDirectory(); // Use current directory
+        : helpers.getMigrationsDirectory(); // Keep the currently configured directory
     return execution.applyAllMigrations(pb, migrationsDir, appliedMigrations);
 }
 
@@ -192,10 +220,9 @@ export async function revertToMigration(
     appliedMigrations: string[] = [],
     customPath?: string
 ): Promise<string[]> {
-    // If customPath is provided, set the migrations directory
-    const migrationsDir = customPath 
+    const migrationsDir = customPath
         ? helpers.setMigrationsDirectory(customPath)
-        : helpers.setMigrationsDirectory(); // Use current directory
+        : helpers.getMigrationsDirectory(); // Keep the currently configured directory
     return execution.revertToMigration(targetMigration, pb, migrationsDir, appliedMigrations);
 }
 
