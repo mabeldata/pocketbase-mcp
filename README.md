@@ -48,8 +48,20 @@ npx -y @smithery/cli install @mabeldata/pocketbase-mcp --client claude
 
 ## Testing
 
--   `npm test` — contract smoke: spawns the built server over stdio, runs the MCP handshake and verifies the `tools/list` contract (no PocketBase instance required).
--   `npm run test:integration` — full smoke against a real PocketBase instance: starts an ephemeral server from the binary at `$POCKETBASE_BIN` (default `/tmp/pb-bin/pocketbase`), creates a superuser, then exercises every tool category (records, collections, files, logs, crons, migrations) over the stdio JSON-RPC channel.
+Test suite (vitest, 3 layers — full guide in [tests/TESTS.md](tests/TESTS.md)):
+
+-   `npm test` — unit + contract tests (152 tests, hermetic: no PocketBase instance or network required). The contract layer locks the `tools/list` MCP contract via snapshot (22 tools), a real Client↔Server handshake over InMemoryTransport, and a stdio smoke of the built `build/index.js`.
+-   `npm run test:integration` — integration tests against a **real** PocketBase binary (39 tests): auto-downloads/caches the binary (`POCKETBASE_VERSION` to pin, `POCKETBASE_BIN` for a local binary, `PB_BIN_DIR` for an alternative cache), boots an ephemeral instance on an OS-assigned port with a unique superuser identity, and validates generated migration files with the official `migrate up/down` runner.
+-   `npm run test:all` — the full suite (191 tests).
+-   `npm run typecheck` — tsc over src + tests.
+-   `SKIP_KNOWN_BUG_TESTS=1 npm test` — green baseline where known-bug marker tests are skipped instead of run.
+
+End-to-end smoke scripts (drive the built server over stdio against a real PocketBase instance, 37 checks):
+
+-   `npm run smoke:contract` — contract-only smoke (tools/list over stdio, no PocketBase needed).
+-   `npm run smoke` — full smoke: starts an ephemeral server from the binary at `$POCKETBASE_BIN` (default `/tmp/pb-bin/pocketbase`), creates a superuser, then exercises every tool category (records, collections, files, logs, crons, migrations) over the stdio JSON-RPC channel.
+
+CI (`.github/workflows/ci.yml`) runs build + typecheck + hermetic tests + integration tests + smoke on a matrix of Node 18/20/22 × PocketBase v0.39.11/v0.40.3.
 
 ## Configuration
 
