@@ -9,8 +9,12 @@
  * - run_sql                (gate POCKETBASE_ENABLE_SQL: bloqueado sem env;
  *                           com env, executa SELECT real no v0.39+)
  * - get_collection_scaffolds / dry_run_view_query (v0.37+)
- * - list_backups / create_backup / restore_backup (restauração real no
- *                           instance ephemeral + sanity pós-restore)
+ * - list_backups / create_backup / restore_backup: APENAS travas e leitura
+ *                           segura no server compartilhado — o ciclo real
+ *                           create→list→restore vive no scripts/smoke.mjs
+ *                           (instância dedicada, restore por último), pois
+ *                           backup/restore em fila trava writes de arquivos
+ *                           irmãos no mesmo boot em disco lento de CI.
  * - get_settings / update_settings (round-trip de meta.appName)
  * - batch_records          (create+update+delete transacional + rollback)
  */
@@ -185,29 +189,26 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
   });
 
   // --------------------------------------------------------------- backups
-  describe('list_backups / create_backup (restore e2e fica no smoke, fim de suíte)', () => {
-    // Restore REAL substitui o db do server compartilhado da suíte e
-    // interfere com arquivos-irmãos que rodam antes/depois no mesmo boot
-    // (ordem de discovery do vitest não é travada) — a happy-path de
-    // restore_backup é coberta como ÚLTIMO check do scripts/smoke.mjs, que
-    // usa instância dedicada. Aqui: criação + visibilidade + travas.
-    it('create_backup fila o backup; list_backups o vê', async () => {
-      const created = await call('create_backup', {}, pb);
-      expect(created.isError).toBeFalsy();
-      expect(JSON.parse(toolText(created)).queued).toBe(true);
+  describe('list_backups / create_backup / restore_backup (travas)', () => {
+    // IMPORTANTE: backups/restore REAIS ficam fora desta suíte. O zip de
+    // pb_data roda ASSÍNCRONO no server e, em disco lento de CI, segura o
+    // lock do SQLite tempo suficiente para travar writes de arquivos-irmãos
+    // no mesmo boot (manifestou como hang de `apply_migration` em
+    // migrations-rest nos jobs 18.x/20.x). O caminho positivo completo
+    // (create → list → restore → sanity) roda no scripts/smoke.mjs, que usa
+    // instância DEDICADA e faz o restore como ÚLTIMO check. Aqui só o que é
+    // seguro no server compartilhado: leitura + validação pré-fila.
+    it('list_backups retorna array (vazio ou não)', async () => {
+      const listed = await call('list_backups', {}, pb);
+      expect(listed.isError).toBeFalsy();
+      expect(Array.isArray(JSON.parse(toolText(listed)))).toBe(true);
+    });
 
-      // server processa a fila de backup de forma assíncrona
-      let keys: string[] = [];
-      const start = Date.now();
-      while (Date.now() - start < 30_000) {
-        const listed = await call('list_backups', {}, pb);
-        expect(listed.isError).toBeFalsy();
-        keys = JSON.parse(toolText(listed)).map((b: any) => b.key);
-        if (keys.length > 0) break;
-        await new Promise(r => setTimeout(r, 1000));
-      }
-      expect(keys.length, 'nenhum backup apareceu em list_backups').toBeGreaterThan(0);
-    }, 90_000);
+    it('create_backup com nome inválido (sem .zip) → 400 de validação propaga, nada é enfileirado', async () => {
+      await expect(
+        call('create_backup', { name: 'invalid name' }, pb)
+      ).rejects.toMatchObject({ status: 400 });
+    });
 
     it('restore sem confirm → InvalidParams (trava destrutiva, antes da rede)', async () => {
       await expect(
@@ -215,10 +216,10 @@ describeI('integração — PR-3 tools aditivas via MCP', () => {
       ).rejects.toMatchObject({ code: ErrorCode.InvalidParams });
     });
 
-    it('restore de key inexistente → erro do server (404/400) propagado', async () => {
+    it('restore de key inexistente → erro do server (400: key inválida/desconhecida) propagado', async () => {
       await expect(
         call('restore_backup', { key: 'nao_existe.zip', confirm: true }, pb)
-      ).rejects.toBeTruthy();
+      ).rejects.toMatchObject({ status: 400 });
     });
   });
 
