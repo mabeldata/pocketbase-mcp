@@ -26,7 +26,7 @@ export class PocketBaseServer {
     this.server = new Server(
       {
         name: 'pocketbase-mcp',
-        version: '0.1.1', // Increment version
+        version: '1.1.0', // Bumped with the PocketBase v0.40 compatibility refactor
       },
       {
         capabilities: {
@@ -36,13 +36,15 @@ export class PocketBaseServer {
     );
 
     this.pb = new PocketBase(API_URL);
-    // Disable auto-refresh attempts
+    // Disable auto-cancellation of pending requests
     this.pb.autoCancellation(false);
     
-    // Authenticate as admin
+    // Authenticate as superuser with a fixed API token.
+    // NOTE: since PocketBase v0.38 a superuser IP whitelist can be enabled in
+    // Settings; when active, requests from IPs outside the whitelist are
+    // rejected with 403 (see README troubleshooting).
     // We can assert ADMIN_TOKEN is defined here because the check above exits if it's not.
     this.pb.authStore.save(ADMIN_TOKEN!, null);
-    // Verify authentication (optional but recommended)
     this.setupRequestHandlers();
     this.setupErrorHandling();
   }
@@ -74,22 +76,38 @@ export class PocketBaseServer {
 
     // Graceful shutdown
     process.on('SIGINT', async () => {
-      console.log('SIGINT received, shutting down PocketBase MCP server...');
+      console.error('SIGINT received, shutting down PocketBase MCP server...');
       await this.server.close();
-      console.log('Server closed.');
+      console.error('Server closed.');
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
-        console.log('SIGTERM received, shutting down PocketBase MCP server...');
+        console.error('SIGTERM received, shutting down PocketBase MCP server...');
         await this.server.close();
-        console.log('Server closed.');
+        console.error('Server closed.');
         process.exit(0);
     });
   }
 
   async run() {
     const transport = new StdioServerTransport();
+
+    // Verify the PocketBase instance is reachable before serving requests.
+    // A failure here is logged to stderr (with an actionable hint) but does
+    // not prevent startup: the stdio server must still answer tools/list even
+    // if the PocketBase instance is temporarily down.
+    try {
+      await this.pb.health.check();
+    } catch (error) {
+      console.error(
+        `WARNING: PocketBase health check failed for ${API_URL}. ` +
+        `Tools will return errors until the instance is reachable. ` +
+        `Common causes: instance down, wrong POCKETBASE_API_URL, or superuser IP whitelist (PocketBase >= v0.38).`,
+        error
+      );
+    }
+
     try {
         await this.server.connect(transport);
         console.error('PocketBase MCP server running on stdio');
